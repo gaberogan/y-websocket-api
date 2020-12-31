@@ -1,0 +1,29 @@
+{
+  "name": "yjs-server",
+  "version": "1.0.0",
+  "description": "server for yjs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "nodemon ."
+  },
+  "exports": {
+    "./": "./"
+  },
+  "nodemonConfig": {
+    "delay": "250"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.17.1",
+    "lib0": "^0.2.35",
+    "slate-yjs": "^0.1.7",
+    "ws": "^7.4.2",
+    "y-protocols": "^1.0.2",
+    "yjs": "^13.4.9"
+  },
+  "devDependencies": {
+    "eslint": "^7.16.0",
+    "nodemon": "^2.0.6"
+  }
+}
