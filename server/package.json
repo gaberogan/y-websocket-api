@@ -17,8 +17,10 @@
     "cors": "^2.8.5",
     "express": "^4.17.1",
     "lib0": "^0.2.35",
+    "lodash.debounce": "^4.0.8",
     "slate-yjs": "^0.1.7",
     "ws": "^7.4.2",
+    "y-leveldb": "^0.1.0",
     "y-protocols": "^1.0.2",
     "yjs": "^13.4.9"
   },
