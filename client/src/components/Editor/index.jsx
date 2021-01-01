@@ -36,8 +36,9 @@ const RichTextEditor = () => {
 
     const yjsEditor = withWebsocket(withYjs(slateEditor), {
       roomName: 'mydoc',
-      endpoint: 'ws://localhost:9000',
+      endpoint: 'ws://localhost:1234',
       connect: true,
+      awareness: 
     })
 
     // Persistence default doc is [] but slate requires at least one node
