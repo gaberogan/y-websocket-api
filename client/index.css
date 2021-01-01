@@ -73,3 +73,8 @@ input:focus {
 [data-slate-editor] > * + * {
   margin-top: 1em;
 }
+
+/* Quill Background */
+.ql-toolbar, #editor-container {
+  background: white;
+}

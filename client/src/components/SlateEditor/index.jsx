@@ -26,7 +26,7 @@ const HOTKEYS = {
 
 const LIST_TYPES = ['numbered-list', 'bulleted-list']
 
-const RichTextEditor = () => {
+const SlateEditor = () => {
   const [value, setValue] = useState([])
   const renderElement = useCallback(props => <Element {...props} />, [])
   const renderLeaf = useCallback(props => <Leaf {...props} />, [])
@@ -214,7 +214,6 @@ const Wrapper = ({ className, ...props }) => (
     className={cx(
       className,
       css`
-        max-width: 42em;
         margin: 20px auto;
         padding: 20px;
       `
@@ -231,4 +230,4 @@ const ExampleContent = props => (
   />
 )
 
-export default RichTextEditor
+export default SlateEditor
