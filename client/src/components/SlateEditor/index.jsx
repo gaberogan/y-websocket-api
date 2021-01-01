@@ -35,7 +35,7 @@ const SlateEditor = () => {
     const slateEditor = withReact(withHistory(createEditor()))
 
     const yjsEditor = withWebsocket(withYjs(slateEditor), {
-      roomName: 'mydoc',
+      roomName: 'my-slate-doc',
       endpoint: 'ws://localhost:9000',
       connect: true,
     })
