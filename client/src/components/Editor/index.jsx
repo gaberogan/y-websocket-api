@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState, useEffect } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import isHotkey from 'is-hotkey'
 import { Editable, withReact, useSlate, Slate } from 'slate-react'
 import {
@@ -8,9 +8,14 @@ import {
   Element as SlateElement,
 } from 'slate'
 import { withHistory } from 'slate-history'
-import { withYjs, withWebsocket, YjsEditor } from 'slate-yjs'
+import { withYjs, withWebsocket, toSyncDoc } from 'slate-yjs'
 import { cx, css } from '@emotion/css'
 import { Button, Icon, Toolbar } from './components'
+
+const DEFAULT_VALUE = [{
+  type: 'paragraph',
+  children: [{ text: '' }],
+}]
 
 const HOTKEYS = {
   'mod+b': 'bold',
@@ -25,23 +30,27 @@ const RichTextEditor = () => {
   const [value, setValue] = useState([])
   const renderElement = useCallback(props => <Element {...props} />, [])
   const renderLeaf = useCallback(props => <Leaf {...props} />, [])
+  const [editable, setEditable] = useState(false)
   const editor = useMemo(() => {  
     const slateEditor = withReact(withHistory(createEditor()))
 
     const yjsEditor = withWebsocket(withYjs(slateEditor), {
-      endpoint: 'ws://localhost:9000',
       roomName: 'mydoc',
-      // connect: true,
-      // awareness: awarenessProtocol.Awareness,
-      // resyncInterval: 1000,
+      endpoint: 'ws://localhost:9000',
+      connect: true,
+    })
+
+    // Persistence default doc is [] but slate requires at least one node
+    // so we add it here if empty to make persistence actually work
+    // https://github.com/BitPhinix/slate-yjs/discussions/111
+    yjsEditor.websocketProvider.on('sync', () => {
+      if (!yjsEditor.syncDoc._length) {
+        toSyncDoc(yjsEditor.syncDoc, DEFAULT_VALUE)
+      }
+      setEditable(true)
     })
 
     return yjsEditor
-  }, [])
-
-  useEffect(() => {
-    editor.connect()
-    return editor.destroy
   }, [])
 
   return (
@@ -58,22 +67,27 @@ const RichTextEditor = () => {
           <BlockButton format="numbered-list" icon="format_list_numbered" />
           <BlockButton format="bulleted-list" icon="format_list_bulleted" />
         </Toolbar>
-        <Editable
+        {!editable && (
+          <div>Loading...</div>
+        )}
+        {editable && (
+          <Editable
           renderElement={renderElement}
           renderLeaf={renderLeaf}
-          // placeholder="Enter some rich text…"
-          // spellCheck
-          // autoFocus
-          // onKeyDown={event => {
-          //   for (const hotkey in HOTKEYS) {
-          //     if (isHotkey(hotkey, event)) {
-          //       event.preventDefault()
-          //       const mark = HOTKEYS[hotkey]
-          //       toggleMark(editor, mark)
-          //     }
-          //   }
-          // }}
+          placeholder="Enter some rich text…"
+          spellCheck
+          // autoFocus // NOTE this breaks it!
+          onKeyDown={event => {
+            for (const hotkey in HOTKEYS) {
+              if (isHotkey(hotkey, event)) {
+                event.preventDefault()
+                const mark = HOTKEYS[hotkey]
+                toggleMark(editor, mark)
+              }
+            }
+          }}
         />
+        )}
       </Slate>
     </ExampleContent>
   )

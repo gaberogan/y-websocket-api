@@ -4,16 +4,7 @@ import http from 'http'
 import WebSocket from 'ws'
 import { WSManager } from './server.js'
 
-const defaultValue = [
-  {
-    type: 'paragraph',
-    children: [
-      {
-        text: '',
-      },
-    ],
-  },
-]
+const DEFAULT_VALUE = []
 
 const run = () => {
   const port = process.env.PORT || 9000
@@ -23,7 +14,7 @@ const run = () => {
   const wss = new WebSocket.Server({ server })
 
   const manager = new WSManager({
-    loadDocument: () => defaultValue,
+    loadDocument: () => DEFAULT_VALUE,
   })
 
   wss.on('connection', (socket, request) => {
