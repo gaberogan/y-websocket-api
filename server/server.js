@@ -4,7 +4,7 @@ import { setupWSConnection } from './utils.js'
 
 const wss = new WebSocket.Server({ noServer: true })
 
-const port = process.env.PORT || 1234
+const port = process.env.PORT || 9000
 
 const server = http.createServer((request, response) => {
   response.writeHead(200, { 'Content-Type': 'text/plain' })
