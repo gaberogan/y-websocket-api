@@ -53,13 +53,13 @@ export const onConnect = ({ conn, docName, gc, getYDoc }) => {
   const encoder = encoding.createEncoder()
   encoding.writeVarUint(encoder, messageSync)
   syncProtocol.writeSyncStep1(encoder, doc)
-  exports.send(doc, conn, encoding.toUint8Array(encoder))
+  externals.send(doc, conn, encoding.toUint8Array(encoder))
   const awarenessStates = doc.awareness.getStates()
   if (awarenessStates.size > 0) {
     const encoder = encoding.createEncoder()
     encoding.writeVarUint(encoder, messageAwareness)
     encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(doc.awareness, Array.from(awarenessStates.keys())))
-    exports.send(doc, conn, encoding.toUint8Array(encoder))
+    externals.send(doc, conn, encoding.toUint8Array(encoder))
   }
   
   return doc

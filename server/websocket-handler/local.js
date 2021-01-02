@@ -1,11 +1,15 @@
+import { fileURLToPath } from 'url'
+import { dirname } from 'path'
 import * as Y from 'yjs'
-// @ts-ignore
-import map from 'lib0/dist/map.cjs'
 
 // @ts-ignore
 import { externals, WSSharedDoc, onDisconnect, onConnect, onMessage } from './common.js'
 
 import { LeveldbPersistence } from 'y-leveldb'
+
+// @ts-ignore
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 // disable gc when using snapshots!
 const persistenceDir = `${__dirname}/dbDir`
