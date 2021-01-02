@@ -46,26 +46,20 @@ export const setPersistence = persistence_ => {
 export const getPersistence = () => persistence
 
 /**
- * @type {Map<string,WSSharedDoc>}
- */
-export const docs = new Map()
-
-/**
  * Gets a Y.Doc by name, whether in memory or on disk
  *
  * @param {string} docname - the name of the Y.Doc to find or create
  * @param {boolean} gc - whether to allow gc on the doc (applies only when created)
  * @return {WSSharedDoc}
  */
-export const getYDoc = (docname, gc = true) => map.setIfUndefined(docs, docname, () => {
+export const getYDoc = (docname, gc = true) => {
   const doc = new WSSharedDoc(docname)
   doc.gc = gc
   if (persistence !== null) {
     persistence.bindState(docname, doc)
   }
-  docs.set(docname, doc)
   return doc
-})
+}
 
 /**
  * @param {WSSharedDoc} doc
@@ -75,12 +69,12 @@ export const getYDoc = (docname, gc = true) => map.setIfUndefined(docs, docname,
 const send = (doc, conn, m) => {
   // not connecting (0) or open (1)
   if (conn.readyState !== 0 && conn.readyState !== 1) {
-    onDisconnect({ doc, conn, persistence, docs })
+    onDisconnect({ doc, conn, persistence })
   }
   try {
-    conn.send(m, /** @param {any} err */ err => { err != null && onDisconnect({ doc, conn, persistence, docs }) })
+    conn.send(m, /** @param {any} err */ err => { err != null && onDisconnect({ doc, conn, persistence }) })
   } catch (e) {
-    onDisconnect({ doc, conn, persistence, docs })
+    onDisconnect({ doc, conn, persistence })
   }
 }
 
@@ -106,7 +100,7 @@ export const setupWSConnection = (conn, req, { docName = req.url.slice(1).split(
   const pingInterval = setInterval(() => {
     if (!pongReceived) {
       if (doc.conns.has(conn)) {
-        onDisconnect({ doc, conn, persistence, docs })
+        onDisconnect({ doc, conn, persistence })
       }
       clearInterval(pingInterval)
     } else if (doc.conns.has(conn)) {
@@ -114,13 +108,13 @@ export const setupWSConnection = (conn, req, { docName = req.url.slice(1).split(
       try {
         conn.ping()
       } catch (e) {
-        onDisconnect({ doc, conn, persistence, docs })
+        onDisconnect({ doc, conn, persistence })
         clearInterval(pingInterval)
       }
     }
   }, pingTimeout)
   conn.on('close', () => {
-    onDisconnect({ doc, conn, persistence, docs })
+    onDisconnect({ doc, conn, persistence })
     clearInterval(pingInterval)
   })
   conn.on('pong', () => {

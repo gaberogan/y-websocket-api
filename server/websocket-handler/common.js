@@ -42,6 +42,7 @@ const messageAwareness = 1
 //   can we sync it instantly?
 //   use pure functions for connect/message/disconnect
 //   ensure data is interpreted as arraybuffer not blob
+//   sometimes locally initial sync is slow maybe we can force it?
 export const onConnect = ({ conn, docName, gc, getYDoc }) => {
   // TODO handle auth here (can throw)
   // get doc, initialize if it does not exist yet
@@ -89,7 +90,7 @@ export const onMessage = (conn, doc, message) => {
   }
 }
 
-export const onDisconnect = ({ doc, conn, persistence, docs }) => { // TODO pull out persistence and docs!
+export const onDisconnect = ({ doc, conn, persistence }) => { // TODO pull out persistence!
   if (doc.conns.has(conn)) {
     /**
      * @type {Set<number>}
@@ -102,7 +103,6 @@ export const onDisconnect = ({ doc, conn, persistence, docs }) => { // TODO pull
       persistence.writeState(doc.name, doc).then(() => {
         doc.destroy()
       })
-      docs.delete(doc.name)
     }
   }
   conn.close()
