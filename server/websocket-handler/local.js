@@ -16,7 +16,7 @@ import map from 'lib0/dist/map.cjs'
 import debounce from 'lodash.debounce'
 
 // @ts-ignore
-import { callbackHandler, isCallbackSet } from './callback.js'
+import { callbackHandler, isCallbackSet } from './common.js'
 
 import { LeveldbPersistence } from 'y-leveldb'
 
@@ -32,7 +32,7 @@ const wsReadyStateClosed = 3 // eslint-disable-line
 
 // disable gc when using snapshots!
 const gcEnabled = process.env.GC !== 'false' && process.env.GC !== '0'
-const persistenceDir = './dbDir'
+const persistenceDir = `${__dirname}/dbDir`
 /**
  * @type {{bindState: function(string,WSSharedDoc):void, writeState:function(string,WSSharedDoc):Promise<any>, provider: any}|null}
  */
@@ -231,6 +231,17 @@ const pingTimeout = 30000
  * @param {any} opts
  */
 export const setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[0], gc = true } = {}) => {
+  // TODO
+  // Think of the below code as 'connect' hook
+  //   ensure doc sync to db (use await all!)
+  // think of messageListener as 'message' hook
+  //   fetch doc via id (use await all!)
+  // think of closeConn as async 'disconnect' hook
+  //   ensure doc + connection are removed from db (use await all!)
+  // other
+  //   callbackWaitsForEmptyEventLoop = true should allow the doc to sync?
+  //   can we sync it instantly?
+  //   use pure functions for connect/message/disconnect
   conn.binaryType = 'arraybuffer'
   // get doc, initialize if it does not exist yet
   const doc = getYDoc(docName, gc)

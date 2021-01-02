@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "nodemon ."
+    "start": "nodemon entry/local"
   },
   "exports": {
     "./": "./"

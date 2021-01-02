@@ -1,6 +1,6 @@
 import WebSocket from 'ws'
 import http from 'http'
-import { setupWSConnection } from './utils.js'
+import { setupWSConnection } from '../websocket-handler/local.js'
 
 const wss = new WebSocket.Server({ noServer: true })
 

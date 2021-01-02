@@ -1,3 +1,18 @@
+// // abstracted from aws or native websockets
+
+// // NOTES
+// // - ensure data is interpreted as arraybuffer not blob
+
+// const connect = ({ connectionId, docName }) => {
+//   // TODO handle auth here (can throw)
+//   // add connection to doc
+//   // get doc, initialize if it does not exist yet
+//   const doc = getYDoc(docName, gc)
+//   doc.conns.set(conn, new Set())
+// }
+
+
+
 import http from 'http'
 
 const CALLBACK_URL = process.env.CALLBACK_URL ? new URL(process.env.CALLBACK_URL) : null
