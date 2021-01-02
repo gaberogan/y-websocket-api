@@ -9,12 +9,19 @@ import encoding from 'lib0/dist/encoding.cjs'
 // @ts-ignore
 import decoding from 'lib0/dist/decoding.cjs'
 // @ts-ignore
+import mutex from 'lib0/dist/mutex.cjs'
+// @ts-ignore
 import map from 'lib0/dist/map.cjs'
 
+import debounce from 'lodash.debounce'
+
 // @ts-ignore
-import { externals, WSSharedDoc, messageListener } from './common.js'
+import { callbackHandler, isCallbackSet } from './callback.js'
 
 import { LeveldbPersistence } from 'y-leveldb'
+
+const CALLBACK_DEBOUNCE_WAIT = parseInt(process.env.CALLBACK_DEBOUNCE_WAIT) || 2000
+const CALLBACK_DEBOUNCE_MAXWAIT = parseInt(process.env.CALLBACK_DEBOUNCE_MAXWAIT) || 10000
 
 const wsReadyStateConnecting = 0
 const wsReadyStateOpen = 1
@@ -24,7 +31,8 @@ const wsReadyStateClosing = 2 // eslint-disable-line
 const wsReadyStateClosed = 3 // eslint-disable-line
 
 // disable gc when using snapshots!
-const persistenceDir = `${__dirname}/dbDir`
+const gcEnabled = process.env.GC !== 'false' && process.env.GC !== '0'
+const persistenceDir = './dbDir'
 /**
  * @type {{bindState: function(string,WSSharedDoc):void, writeState:function(string,WSSharedDoc):Promise<any>, provider: any}|null}
  */
@@ -71,6 +79,71 @@ const messageAwareness = 1
 // const messageAuth = 2
 
 /**
+ * @param {Uint8Array} update
+ * @param {any} origin
+ * @param {WSSharedDoc} doc
+ */
+const updateHandler = (update, origin, doc) => {
+  const encoder = encoding.createEncoder()
+  encoding.writeVarUint(encoder, messageSync)
+  syncProtocol.writeUpdate(encoder, update)
+  const message = encoding.toUint8Array(encoder)
+  doc.conns.forEach((_, conn) => send(doc, conn, message))
+}
+
+class WSSharedDoc extends Y.Doc {
+  /**
+   * @param {string} name
+   */
+  constructor (name) {
+    super({ gc: gcEnabled })
+    this.name = name
+    this.mux = mutex.createMutex()
+    /**
+     * Maps from conn to set of controlled user ids. Delete all user ids from awareness when this conn is closed
+     * @type {Map<Object, Set<number>>}
+     */
+    this.conns = new Map()
+    /**
+     * @type {awarenessProtocol.Awareness}
+     */
+    this.awareness = new awarenessProtocol.Awareness(this)
+    this.awareness.setLocalState(null)
+    /**
+     * @param {{ added: Array<number>, updated: Array<number>, removed: Array<number> }} changes
+     * @param {Object | null} conn Origin is the connection that made the change
+     */
+    const awarenessChangeHandler = ({ added, updated, removed }, conn) => {
+      const changedClients = added.concat(updated, removed)
+      if (conn !== null) {
+        const connControlledIDs = /** @type {Set<number>} */ (this.conns.get(conn))
+        if (connControlledIDs !== undefined) {
+          added.forEach(clientID => { connControlledIDs.add(clientID) })
+          removed.forEach(clientID => { connControlledIDs.delete(clientID) })
+        }
+      }
+      // broadcast awareness update
+      const encoder = encoding.createEncoder()
+      encoding.writeVarUint(encoder, messageAwareness)
+      encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(this.awareness, changedClients))
+      const buff = encoding.toUint8Array(encoder)
+      this.conns.forEach((_, c) => {
+        send(this, c, buff)
+      })
+    }
+    this.awareness.on('update', awarenessChangeHandler)
+    this.on('update', updateHandler)
+    if (isCallbackSet) {
+      this.on('update', debounce(
+        callbackHandler,
+        CALLBACK_DEBOUNCE_WAIT,
+        { maxWait: CALLBACK_DEBOUNCE_MAXWAIT }
+      ))
+    }
+  }
+}
+
+/**
  * Gets a Y.Doc by name, whether in memory or on disk
  *
  * @param {string} docname - the name of the Y.Doc to find or create
@@ -86,6 +159,30 @@ export const getYDoc = (docname, gc = true) => map.setIfUndefined(docs, docname,
   docs.set(docname, doc)
   return doc
 })
+
+/**
+ * @param {any} conn
+ * @param {WSSharedDoc} doc
+ * @param {Uint8Array} message
+ */
+const messageListener = (conn, doc, message) => {
+  const encoder = encoding.createEncoder()
+  const decoder = decoding.createDecoder(message)
+  const messageType = decoding.readVarUint(decoder)
+  switch (messageType) {
+  case messageSync:
+    encoding.writeVarUint(encoder, messageSync)
+    syncProtocol.readSyncMessage(decoder, encoder, doc, null)
+    if (encoding.length(encoder) > 1) {
+      send(doc, conn, encoding.toUint8Array(encoder))
+    }
+    break
+  case messageAwareness: {
+    awarenessProtocol.applyAwarenessUpdate(doc.awareness, decoding.readVarUint8Array(decoder), conn)
+    break
+  }
+  }
+}
 
 /**
  * @param {WSSharedDoc} doc
@@ -125,8 +222,6 @@ const send = (doc, conn, m) => {
     closeConn(doc, conn)
   }
 }
-
-externals.send = send
 
 const pingTimeout = 30000
 
