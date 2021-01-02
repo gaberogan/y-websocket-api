@@ -1,27 +1,11 @@
 import * as Y from 'yjs'
 // @ts-ignore
-import syncProtocol from 'y-protocols/dist/sync.cjs'
-// @ts-ignore
-import awarenessProtocol from 'y-protocols/dist/awareness.cjs'
-
-// @ts-ignore
-import encoding from 'lib0/dist/encoding.cjs'
-// @ts-ignore
-import decoding from 'lib0/dist/decoding.cjs'
-// @ts-ignore
 import map from 'lib0/dist/map.cjs'
 
 // @ts-ignore
-import { externals, WSSharedDoc, messageListener } from './common.js'
+import { externals, WSSharedDoc, onDisconnect, onConnect } from './common.js'
 
 import { LeveldbPersistence } from 'y-leveldb'
-
-const wsReadyStateConnecting = 0
-const wsReadyStateOpen = 1
-// @ts-ignore
-const wsReadyStateClosing = 2 // eslint-disable-line
-// @ts-ignore
-const wsReadyStateClosed = 3 // eslint-disable-line
 
 // disable gc when using snapshots!
 const persistenceDir = `${__dirname}/dbDir`
@@ -66,10 +50,6 @@ export const getPersistence = () => persistence
  */
 export const docs = new Map()
 
-const messageSync = 0
-const messageAwareness = 1
-// const messageAuth = 2
-
 /**
  * Gets a Y.Doc by name, whether in memory or on disk
  *
@@ -90,39 +70,17 @@ export const getYDoc = (docname, gc = true) => map.setIfUndefined(docs, docname,
 /**
  * @param {WSSharedDoc} doc
  * @param {any} conn
- */
-const closeConn = (doc, conn) => {
-  if (doc.conns.has(conn)) {
-    /**
-     * @type {Set<number>}
-     */
-    const controlledIds = doc.conns.get(conn)
-    doc.conns.delete(conn)
-    awarenessProtocol.removeAwarenessStates(doc.awareness, Array.from(controlledIds), null)
-    if (doc.conns.size === 0 && persistence !== null) {
-      // if persisted, we store state and destroy ydocument
-      persistence.writeState(doc.name, doc).then(() => {
-        doc.destroy()
-      })
-      docs.delete(doc.name)
-    }
-  }
-  conn.close()
-}
-
-/**
- * @param {WSSharedDoc} doc
- * @param {any} conn
  * @param {Uint8Array} m
  */
 const send = (doc, conn, m) => {
-  if (conn.readyState !== wsReadyStateConnecting && conn.readyState !== wsReadyStateOpen) {
-    closeConn(doc, conn)
+  // not connecting (0) or open (1)
+  if (conn.readyState !== 0 && conn.readyState !== 1) {
+    onDisconnect({ doc, conn, persistence, docs })
   }
   try {
-    conn.send(m, /** @param {any} err */ err => { err != null && closeConn(doc, conn) })
+    conn.send(m, /** @param {any} err */ err => { err != null && onDisconnect({ doc, conn, persistence, docs }) })
   } catch (e) {
-    closeConn(doc, conn)
+    onDisconnect({ doc, conn, persistence, docs })
   }
 }
 
@@ -136,30 +94,14 @@ const pingTimeout = 30000
  * @param {any} opts
  */
 export const setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[0], gc = true } = {}) => {
-  // TODO
-  // Think of the below code as 'connect' hook
-  //   ensure doc sync to db (use await all!)
-  // think of messageListener as 'message' hook
-  //   fetch doc via id (use await all!)
-  // think of closeConn as async 'disconnect' hook
-  //   ensure doc + connection are removed from db (use await all!)
-  // other
-  //   callbackWaitsForEmptyEventLoop = true should allow the doc to sync?
-  //   can we sync it instantly?
-  //   use pure functions for connect/message/disconnect
-  conn.binaryType = 'arraybuffer'
-  // get doc, initialize if it does not exist yet
-  const doc = getYDoc(docName, gc)
-  doc.conns.set(conn, new Set())
-  // listen and reply to events
-  conn.on('message', /** @param {ArrayBuffer} message */ message => messageListener(conn, doc, new Uint8Array(message)))
+  const doc = onConnect({ conn, docName, gc, getYDoc })
 
   // Check if connection is still alive
   let pongReceived = true
   const pingInterval = setInterval(() => {
     if (!pongReceived) {
       if (doc.conns.has(conn)) {
-        closeConn(doc, conn)
+        onDisconnect({ doc, conn, persistence, docs })
       }
       clearInterval(pingInterval)
     } else if (doc.conns.has(conn)) {
@@ -167,32 +109,16 @@ export const setupWSConnection = (conn, req, { docName = req.url.slice(1).split(
       try {
         conn.ping()
       } catch (e) {
-        closeConn(doc, conn)
+        onDisconnect({ doc, conn, persistence, docs })
         clearInterval(pingInterval)
       }
     }
   }, pingTimeout)
   conn.on('close', () => {
-    closeConn(doc, conn)
+    onDisconnect({ doc, conn, persistence, docs })
     clearInterval(pingInterval)
   })
   conn.on('pong', () => {
     pongReceived = true
   })
-  // put the following in a variables in a block so the interval handlers don't keep in in
-  // scope
-  {
-    // send sync step 1
-    const encoder = encoding.createEncoder()
-    encoding.writeVarUint(encoder, messageSync)
-    syncProtocol.writeSyncStep1(encoder, doc)
-    send(doc, conn, encoding.toUint8Array(encoder))
-    const awarenessStates = doc.awareness.getStates()
-    if (awarenessStates.size > 0) {
-      const encoder = encoding.createEncoder()
-      encoding.writeVarUint(encoder, messageAwareness)
-      encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(doc.awareness, Array.from(awarenessStates.keys())))
-      send(doc, conn, encoding.toUint8Array(encoder))
-    }
-  }
 }

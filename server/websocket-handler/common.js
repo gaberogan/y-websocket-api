@@ -1,15 +1,4 @@
-// // abstracted from aws or native websockets
-
-// // NOTES
-// // - ensure data is interpreted as arraybuffer not blob
-
-// const connect = ({ connectionId, docName }) => {
-//   // TODO handle auth here (can throw)
-//   // add connection to doc
-//   // get doc, initialize if it does not exist yet
-//   const doc = getYDoc(docName, gc)
-//   doc.conns.set(conn, new Set())
-// }
+// abstracted from aws or native websockets
 
 import * as Y from 'yjs'
 // @ts-ignore
@@ -42,6 +31,90 @@ const gcEnabled = process.env.GC !== 'false' && process.env.GC !== '0'
 const messageSync = 0
 const messageAwareness = 1
 // const messageAuth = 2
+
+// TODO
+// Think of the below code as 'connect' hook
+//   ensure doc sync to db (use await all!)
+// think of onMessage as 'message' hook
+//   fetch doc via id (use await all!)
+// think of closeConn as async 'disconnect' hook
+//   ensure doc + connection are removed from db (use await all!)
+// other
+//   callbackWaitsForEmptyEventLoop = true should allow the doc to sync?
+//   can we sync it instantly?
+//   use pure functions for connect/message/disconnect
+//   ensure data is interpreted as arraybuffer not blob
+export const onConnect = ({ conn, docName, gc, getYDoc }) => {
+  // TODO handle auth here (can throw)
+  conn.binaryType = 'arraybuffer'
+  // get doc, initialize if it does not exist yet
+  const doc = getYDoc(docName, gc) // TODO move getYDoc to peristence!
+  doc.conns.set(conn, new Set())
+  // listen and reply to events
+  conn.on('message', /** @param {ArrayBuffer} message */ message => onMessage(conn, doc, new Uint8Array(message)))
+
+  // put the following in a variables in a block so the interval handlers don't keep in in scope
+  {
+    // send sync step 1
+    const encoder = encoding.createEncoder()
+    encoding.writeVarUint(encoder, messageSync)
+    syncProtocol.writeSyncStep1(encoder, doc)
+    exports.send(doc, conn, encoding.toUint8Array(encoder))
+    const awarenessStates = doc.awareness.getStates()
+    if (awarenessStates.size > 0) {
+      const encoder = encoding.createEncoder()
+      encoding.writeVarUint(encoder, messageAwareness)
+      encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(doc.awareness, Array.from(awarenessStates.keys())))
+      exports.send(doc, conn, encoding.toUint8Array(encoder))
+    }
+  }
+  
+  return doc
+}
+
+/**
+ * Common code for handling a message from the websocket
+ * @param {any} conn
+ * @param {WSSharedDoc} doc
+ * @param {Uint8Array} message
+ */
+export const onMessage = (conn, doc, message) => {
+  const encoder = encoding.createEncoder()
+  const decoder = decoding.createDecoder(message)
+  const messageType = decoding.readVarUint(decoder)
+  switch (messageType) {
+  case messageSync:
+    encoding.writeVarUint(encoder, messageSync)
+    syncProtocol.readSyncMessage(decoder, encoder, doc, null)
+    if (encoding.length(encoder) > 1) {
+      externals.send(doc, conn, encoding.toUint8Array(encoder))
+    }
+    break
+  case messageAwareness: {
+    awarenessProtocol.applyAwarenessUpdate(doc.awareness, decoding.readVarUint8Array(decoder), conn)
+    break
+  }
+  }
+}
+
+export const onDisconnect = ({ doc, conn, persistence, docs }) => { // TODO pull out persistence and docs!
+  if (doc.conns.has(conn)) {
+    /**
+     * @type {Set<number>}
+     */
+    const controlledIds = doc.conns.get(conn)
+    doc.conns.delete(conn)
+    awarenessProtocol.removeAwarenessStates(doc.awareness, Array.from(controlledIds), null)
+    if (doc.conns.size === 0 && persistence !== null) {
+      // if persisted, we store state and destroy ydocument
+      persistence.writeState(doc.name, doc).then(() => {
+        doc.destroy()
+      })
+      docs.delete(doc.name)
+    }
+  }
+  conn.close()
+}
 
 export class WSSharedDoc extends Y.Doc {
   /**
@@ -103,29 +176,6 @@ const updateHandler = (update, origin, doc) => {
   doc.conns.forEach((_, conn) => externals.send(doc, conn, message))
 }
 
-/**
- * @param {any} conn
- * @param {WSSharedDoc} doc
- * @param {Uint8Array} message
- */
-export const messageListener = (conn, doc, message) => {
-  const encoder = encoding.createEncoder()
-  const decoder = decoding.createDecoder(message)
-  const messageType = decoding.readVarUint(decoder)
-  switch (messageType) {
-  case messageSync:
-    encoding.writeVarUint(encoder, messageSync)
-    syncProtocol.readSyncMessage(decoder, encoder, doc, null)
-    if (encoding.length(encoder) > 1) {
-      externals.send(doc, conn, encoding.toUint8Array(encoder))
-    }
-    break
-  case messageAwareness: {
-    awarenessProtocol.applyAwarenessUpdate(doc.awareness, decoding.readVarUint8Array(decoder), conn)
-    break
-  }
-  }
-}
 
 
 
