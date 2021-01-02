@@ -3,7 +3,7 @@ import * as Y from 'yjs'
 import map from 'lib0/dist/map.cjs'
 
 // @ts-ignore
-import { externals, WSSharedDoc, onDisconnect, onConnect } from './common.js'
+import { externals, WSSharedDoc, onDisconnect, onConnect, onMessage } from './common.js'
 
 import { LeveldbPersistence } from 'y-leveldb'
 
@@ -94,7 +94,12 @@ const pingTimeout = 30000
  * @param {any} opts
  */
 export const setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[0], gc = true } = {}) => {
+  conn.binaryType = 'arraybuffer'
+
   const doc = onConnect({ conn, docName, gc, getYDoc })
+
+  // listen and reply to events
+  conn.on('message', /** @param {ArrayBuffer} message */ message => onMessage(conn, doc, new Uint8Array(message)))
 
   // Check if connection is still alive
   let pongReceived = true

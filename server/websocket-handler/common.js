@@ -12,8 +12,6 @@ import encoding from 'lib0/dist/encoding.cjs'
 import decoding from 'lib0/dist/decoding.cjs'
 // @ts-ignore
 import mutex from 'lib0/dist/mutex.cjs'
-// @ts-ignore
-import map from 'lib0/dist/map.cjs'
 
 import debounce from 'lodash.debounce'
 
@@ -46,27 +44,21 @@ const messageAwareness = 1
 //   ensure data is interpreted as arraybuffer not blob
 export const onConnect = ({ conn, docName, gc, getYDoc }) => {
   // TODO handle auth here (can throw)
-  conn.binaryType = 'arraybuffer'
   // get doc, initialize if it does not exist yet
   const doc = getYDoc(docName, gc) // TODO move getYDoc to peristence!
   doc.conns.set(conn, new Set())
-  // listen and reply to events
-  conn.on('message', /** @param {ArrayBuffer} message */ message => onMessage(conn, doc, new Uint8Array(message)))
 
-  // put the following in a variables in a block so the interval handlers don't keep in in scope
-  {
-    // send sync step 1
+  // send sync step 1
+  const encoder = encoding.createEncoder()
+  encoding.writeVarUint(encoder, messageSync)
+  syncProtocol.writeSyncStep1(encoder, doc)
+  exports.send(doc, conn, encoding.toUint8Array(encoder))
+  const awarenessStates = doc.awareness.getStates()
+  if (awarenessStates.size > 0) {
     const encoder = encoding.createEncoder()
-    encoding.writeVarUint(encoder, messageSync)
-    syncProtocol.writeSyncStep1(encoder, doc)
+    encoding.writeVarUint(encoder, messageAwareness)
+    encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(doc.awareness, Array.from(awarenessStates.keys())))
     exports.send(doc, conn, encoding.toUint8Array(encoder))
-    const awarenessStates = doc.awareness.getStates()
-    if (awarenessStates.size > 0) {
-      const encoder = encoding.createEncoder()
-      encoding.writeVarUint(encoder, messageAwareness)
-      encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(doc.awareness, Array.from(awarenessStates.keys())))
-      exports.send(doc, conn, encoding.toUint8Array(encoder))
-    }
   }
   
   return doc
