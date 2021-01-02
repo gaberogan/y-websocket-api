@@ -35,35 +35,7 @@ if (typeof persistenceDir === 'string') {
   }
 }
 
-/**
- * @param {{bindState: function(string,WSSharedDoc):void,
- * writeState:function(string,WSSharedDoc):Promise<any>,provider:any}|null} persistence_
- */
-export const setPersistence = persistence_ => {
-  persistence = persistence_
-}
-
-/**
- * @return {null|{bindState: function(string,WSSharedDoc):void,
-  * writeState:function(string,WSSharedDoc):Promise<any>}|null} used persistence layer
-  */
-export const getPersistence = () => persistence
-
-/**
- * Gets a Y.Doc by name, whether in memory or on disk
- *
- * @param {string} docname - the name of the Y.Doc to find or create
- * @param {boolean} gc - whether to allow gc on the doc (applies only when created)
- * @return {WSSharedDoc}
- */
-export const getYDoc = (docname, gc = true) => {
-  const doc = new WSSharedDoc(docname)
-  doc.gc = gc
-  if (persistence !== null) {
-    persistence.bindState(docname, doc)
-  }
-  return doc
-}
+externals.persistence = persistence
 
 /**
  * @param {WSSharedDoc} doc
@@ -73,12 +45,12 @@ export const getYDoc = (docname, gc = true) => {
 const send = (doc, conn, m) => {
   // not connecting (0) or open (1)
   if (conn.readyState !== 0 && conn.readyState !== 1) {
-    onDisconnect({ doc, conn, persistence })
+    onDisconnect({ doc, conn })
   }
   try {
-    conn.send(m, /** @param {any} err */ err => { err != null && onDisconnect({ doc, conn, persistence }) })
+    conn.send(m, /** @param {any} err */ err => { err != null && onDisconnect({ doc, conn }) })
   } catch (e) {
-    onDisconnect({ doc, conn, persistence })
+    onDisconnect({ doc, conn })
   }
 }
 
@@ -94,7 +66,7 @@ const pingTimeout = 30000
 export const setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[0], gc = true } = {}) => {
   conn.binaryType = 'arraybuffer'
 
-  const doc = onConnect({ conn, docName, gc, getYDoc })
+  const doc = onConnect({ conn, docName, gc })
 
   // listen and reply to events
   conn.on('message', /** @param {ArrayBuffer} message */ message => onMessage(conn, doc, new Uint8Array(message)))
@@ -104,7 +76,7 @@ export const setupWSConnection = (conn, req, { docName = req.url.slice(1).split(
   const pingInterval = setInterval(() => {
     if (!pongReceived) {
       if (doc.conns.has(conn)) {
-        onDisconnect({ doc, conn, persistence })
+        onDisconnect({ doc, conn })
       }
       clearInterval(pingInterval)
     } else if (doc.conns.has(conn)) {
@@ -112,13 +84,13 @@ export const setupWSConnection = (conn, req, { docName = req.url.slice(1).split(
       try {
         conn.ping()
       } catch (e) {
-        onDisconnect({ doc, conn, persistence })
+        onDisconnect({ doc, conn })
         clearInterval(pingInterval)
       }
     }
   }, pingTimeout)
   conn.on('close', () => {
-    onDisconnect({ doc, conn, persistence })
+    onDisconnect({ doc, conn })
     clearInterval(pingInterval)
   })
   conn.on('pong', () => {

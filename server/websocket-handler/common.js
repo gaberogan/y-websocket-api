@@ -19,6 +19,7 @@ import http from 'http'
 
 export const externals = {
   send: null,
+  persistence: null,
 }
 
 const CALLBACK_DEBOUNCE_WAIT = parseInt(process.env.CALLBACK_DEBOUNCE_WAIT) || 2000
@@ -43,10 +44,10 @@ const messageAwareness = 1
 //   use pure functions for connect/message/disconnect
 //   ensure data is interpreted as arraybuffer not blob
 //   sometimes locally initial sync is slow maybe we can force it?
-export const onConnect = ({ conn, docName, gc, getYDoc }) => {
+export const onConnect = ({ conn, docName, gc }) => {
   // TODO handle auth here (can throw)
   // get doc, initialize if it does not exist yet
-  const doc = getYDoc(docName, gc) // TODO move getYDoc to peristence!
+  const doc = getDoc(docName, gc)
   doc.conns.set(conn, new Set())
 
   // send sync step 1
@@ -90,7 +91,7 @@ export const onMessage = (conn, doc, message) => {
   }
 }
 
-export const onDisconnect = ({ doc, conn, persistence }) => { // TODO pull out persistence!
+export const onDisconnect = ({ doc, conn }) => {
   if (doc.conns.has(conn)) {
     /**
      * @type {Set<number>}
@@ -98,14 +99,30 @@ export const onDisconnect = ({ doc, conn, persistence }) => { // TODO pull out p
     const controlledIds = doc.conns.get(conn)
     doc.conns.delete(conn)
     awarenessProtocol.removeAwarenessStates(doc.awareness, Array.from(controlledIds), null)
-    if (doc.conns.size === 0 && persistence !== null) {
+    if (doc.conns.size === 0 && externals.persistence !== null) {
       // if persisted, we store state and destroy ydocument
-      persistence.writeState(doc.name, doc).then(() => {
+      externals.persistence.writeState(doc.name, doc).then(() => {
         doc.destroy()
       })
     }
   }
   conn.close()
+}
+
+/**
+ * Gets a Y.Doc by name, whether in memory or on disk
+ *
+ * @param {string} docname - the name of the Y.Doc to find or create
+ * @param {boolean} gc - whether to allow gc on the doc (applies only when created)
+ * @return {WSSharedDoc}
+ */
+export const getDoc = (docname, gc = true) => {
+  const doc = new WSSharedDoc(docname)
+  doc.gc = gc
+  if (externals.persistence !== null) {
+    externals.persistence.bindState(docname, doc)
+  }
+  return doc
 }
 
 export class WSSharedDoc extends Y.Doc {
