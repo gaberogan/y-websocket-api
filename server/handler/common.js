@@ -17,7 +17,7 @@ import debounce from 'lodash.debounce'
 
 import http from 'http'
 
-import { externals as dbExternals } from '../db/common.js'
+import { persistence } from '../db/local.js'
 
 export const externals = {
   send: null,
@@ -45,6 +45,7 @@ const messageAwareness = 1
 //   use pure functions for connect/message/disconnect
 //   ensure data is interpreted as arraybuffer not blob
 //   sometimes locally initial sync is slow maybe we can force it?
+
 export const onConnect = ({ conn, docName, gc }) => {
   // TODO handle auth here (can throw)
   // get doc, initialize if it does not exist yet
@@ -67,12 +68,6 @@ export const onConnect = ({ conn, docName, gc }) => {
   return doc
 }
 
-/**
- * Common code for handling a message from the websocket
- * @param {any} conn
- * @param {WSSharedDoc} doc
- * @param {Uint8Array} message
- */
 export const onMessage = (conn, doc, message) => {
   const encoder = encoding.createEncoder()
   const decoder = decoding.createDecoder(message)
@@ -100,9 +95,9 @@ export const onDisconnect = ({ doc, conn }) => {
     const controlledIds = doc.conns.get(conn)
     doc.conns.delete(conn)
     awarenessProtocol.removeAwarenessStates(doc.awareness, Array.from(controlledIds), null)
-    if (doc.conns.size === 0 && dbExternals.persistence !== null) {
+    if (doc.conns.size === 0 && persistence !== null) {
       // if persisted, we store state and destroy ydocument
-      dbExternals.persistence.writeState(doc.name, doc).then(() => {
+      persistence.writeState(doc.name, doc).then(() => {
         doc.destroy()
       })
     }
@@ -110,26 +105,16 @@ export const onDisconnect = ({ doc, conn }) => {
   conn.close()
 }
 
-/**
- * Gets a Y.Doc by name, whether in memory or on disk
- *
- * @param {string} docname - the name of the Y.Doc to find or create
- * @param {boolean} gc - whether to allow gc on the doc (applies only when created)
- * @return {WSSharedDoc}
- */
 export const getDoc = (docname, gc = true) => {
   const doc = new WSSharedDoc(docname)
   doc.gc = gc
-  if (dbExternals.persistence !== null) {
-    dbExternals.persistence.bindState(docname, doc)
+  if (persistence !== null) {
+    persistence.bindState(docname, doc)
   }
   return doc
 }
 
 export class WSSharedDoc extends Y.Doc {
-  /**
-   * @param {string} name
-   */
   constructor (name) {
     super({ gc: gcEnabled })
     this.name = name
@@ -185,8 +170,6 @@ const updateHandler = (update, origin, doc) => {
   const message = encoding.toUint8Array(encoder)
   doc.conns.forEach((_, conn) => externals.send(doc, conn, message))
 }
-
-
 
 
 
