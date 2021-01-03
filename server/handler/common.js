@@ -17,9 +17,10 @@ import debounce from 'lodash.debounce'
 
 import http from 'http'
 
+import { externals as dbExternals } from '../db/common.js'
+
 export const externals = {
   send: null,
-  persistence: null,
 }
 
 const CALLBACK_DEBOUNCE_WAIT = parseInt(process.env.CALLBACK_DEBOUNCE_WAIT) || 2000
@@ -99,9 +100,9 @@ export const onDisconnect = ({ doc, conn }) => {
     const controlledIds = doc.conns.get(conn)
     doc.conns.delete(conn)
     awarenessProtocol.removeAwarenessStates(doc.awareness, Array.from(controlledIds), null)
-    if (doc.conns.size === 0 && externals.persistence !== null) {
+    if (doc.conns.size === 0 && dbExternals.persistence !== null) {
       // if persisted, we store state and destroy ydocument
-      externals.persistence.writeState(doc.name, doc).then(() => {
+      dbExternals.persistence.writeState(doc.name, doc).then(() => {
         doc.destroy()
       })
     }
@@ -119,8 +120,8 @@ export const onDisconnect = ({ doc, conn }) => {
 export const getDoc = (docname, gc = true) => {
   const doc = new WSSharedDoc(docname)
   doc.gc = gc
-  if (externals.persistence !== null) {
-    externals.persistence.bindState(docname, doc)
+  if (dbExternals.persistence !== null) {
+    dbExternals.persistence.bindState(docname, doc)
   }
   return doc
 }

@@ -4,6 +4,7 @@ import * as Y from 'yjs'
 
 // @ts-ignore
 import { externals, onDisconnect, onConnect, onMessage } from './common.js'
+import { externals as dbExternals } from '../db/common.js'
 
 import { LeveldbPersistence } from 'y-leveldb'
 import WebSocket from 'ws'
@@ -98,7 +99,7 @@ if (typeof persistenceDir === 'string') {
   }
 }
 
-externals.persistence = persistence
+dbExternals.persistence = persistence
 
 /**
  * @param {import('./common').WSSharedDoc} doc
