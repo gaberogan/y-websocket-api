@@ -5,18 +5,14 @@ import * as Y from 'yjs'
 import syncProtocol from 'y-protocols/dist/sync.cjs'
 // @ts-ignore
 import awarenessProtocol from 'y-protocols/dist/awareness.cjs'
-
 // @ts-ignore
 import encoding from 'lib0/dist/encoding.cjs'
 // @ts-ignore
 import decoding from 'lib0/dist/decoding.cjs'
 // @ts-ignore
 import mutex from 'lib0/dist/mutex.cjs'
-
 import debounce from 'lodash.debounce'
-
 import http from 'http'
-
 import { persistence } from '../db/local.js'
 
 export const externals = {
@@ -48,8 +44,13 @@ const messageAwareness = 1
 
 export const onConnect = ({ conn, docName, gc }) => {
   // TODO handle auth here (can throw)
-  // get doc, initialize if it does not exist yet
-  const doc = getDoc(docName, gc)
+
+  // Initialize doc + add conn
+  const doc = new WSSharedDoc(docName)
+  doc.gc = gc
+  if (persistence !== null) {
+    persistence.bindState(docName, doc)
+  }
   doc.conns.set(conn, new Set())
 
   // send sync step 1
@@ -105,30 +106,15 @@ export const onDisconnect = ({ doc, conn }) => {
   conn.close()
 }
 
-export const getDoc = (docname, gc = true) => {
-  const doc = new WSSharedDoc(docname)
-  doc.gc = gc
-  if (persistence !== null) {
-    persistence.bindState(docname, doc)
-  }
-  return doc
-}
-
 export class WSSharedDoc extends Y.Doc {
   constructor (name) {
     super({ gc: gcEnabled })
     this.name = name
     this.mux = mutex.createMutex()
-    /**
-     * Maps from conn to set of controlled user ids. Delete all user ids from awareness when this conn is closed
-     * @type {Map<Object, Set<number>>}
-     */
     this.conns = new Map()
-    /**
-     * @type {awarenessProtocol.Awareness}
-     */
     this.awareness = new awarenessProtocol.Awareness(this)
     this.awareness.setLocalState(null)
+  
     /**
      * @param {{ added: Array<number>, updated: Array<number>, removed: Array<number> }} changes
      * @param {Object | null} conn Origin is the connection that made the change
@@ -151,8 +137,10 @@ export class WSSharedDoc extends Y.Doc {
         externals.send(this, c, buff)
       })
     }
+  
     this.awareness.on('update', awarenessChangeHandler)
     this.on('update', updateHandler)
+
     if (isCallbackSet) {
       this.on('update', debounce(
         callbackHandler,
@@ -171,8 +159,6 @@ const updateHandler = (update, origin, doc) => {
   doc.conns.forEach((_, conn) => externals.send(doc, conn, message))
 }
 
-
-
 // used to be callback.js -------------------------------------------------
 
 const CALLBACK_URL = process.env.CALLBACK_URL ? new URL(process.env.CALLBACK_URL) : null
@@ -181,11 +167,6 @@ const CALLBACK_OBJECTS = process.env.CALLBACK_OBJECTS ? JSON.parse(process.env.C
 
 const isCallbackSet = !!CALLBACK_URL
 
-/**
- * @param {Uint8Array} update
- * @param {any} origin
- * @param {any} doc
- */
 const callbackHandler = (update, origin, doc) => {
   const room = doc.name
   const dataToSend = {
@@ -204,11 +185,6 @@ const callbackHandler = (update, origin, doc) => {
   callbackRequest(CALLBACK_URL, CALLBACK_TIMEOUT, dataToSend)
 }
 
-/**
- * @param {URL} url
- * @param {number} timeout
- * @param {Object} data
- */
 const callbackRequest = (url, timeout, data) => {
   data = JSON.stringify(data)
   const options = {
@@ -235,11 +211,6 @@ const callbackRequest = (url, timeout, data) => {
   req.end()
 }
 
-/**
- * @param {string} objName
- * @param {string} objType
- * @param {any} doc
- */
 const getContent = (objName, objType, doc) => {
   switch (objType) {
   case 'Array': return doc.getArray(objName)
