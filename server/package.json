@@ -6,8 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "nodemon src/handler/local",
-    "build": "rimraf build && babel . -d build && npm run build-install",
-    "build-install": "cp -t build package.json package-lock.json && npm ci --production --prefix build"
+    "build": "rimraf build && rollup --config rollup.config.js"
   },
   "exports": {
     "./": "./"
@@ -25,9 +24,12 @@
     "@babel/cli": "^7.12.10",
     "@babel/core": "^7.12.10",
     "@babel/preset-env": "^7.12.11",
+    "@rollup/plugin-commonjs": "^17.0.0",
+    "@rollup/plugin-node-resolve": "^11.0.1",
     "eslint": "^7.17.0",
     "nodemon": "^2.0.6",
     "rimraf": "^3.0.2",
+    "rollup": "^2.36.1",
     "ws": "^7.4.2",
     "y-leveldb": "^0.1.0"
   }
