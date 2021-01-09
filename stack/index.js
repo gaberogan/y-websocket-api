@@ -9,8 +9,6 @@ class WebsocketDynamoDBStack extends Stack {
   constructor(scope, id, props) {
     super(scope, id, props)
 
-    const tableName = 'docs'
-
     // Initialize API
   
     const name = id + '-api'
@@ -19,7 +17,10 @@ class WebsocketDynamoDBStack extends Stack {
       protocolType: 'WEBSOCKET',
       routeSelectionExpression: '$request.body.action',
     })
-    const table = new Table(this, `${name}-table`, {
+
+    // Create tables
+
+    const docsTable = new Table(this, `${name}-docs-table`, {
       partitionKey: {
         name: 'PartitionKey',
         type: AttributeType.STRING,
@@ -28,7 +29,17 @@ class WebsocketDynamoDBStack extends Stack {
         name: 'SortKey',
         type: AttributeType.STRING,
       },
-      tableName,
+      tableName: 'docs',
+      billingMode: BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY, // TODO for prod use RETAIN
+    })
+
+    const connectionsTable = new Table(this, `${name}-connections-table`, {
+      partitionKey: {
+        name: 'PartitionKey',
+        type: AttributeType.STRING,
+      },
+      tableName: 'connections',
       billingMode: BillingMode.PAY_PER_REQUEST,
       removalPolicy: RemovalPolicy.DESTROY, // TODO for prod use RETAIN
     })
@@ -37,7 +48,7 @@ class WebsocketDynamoDBStack extends Stack {
 
     const messageFunc = new Function(this, `${name}-message-lambda`, {
       code: new AssetCode('../server/build'),
-      handler: 'handler/aws.handler',
+      handler: 'index.handler', // TODO use rollup
       runtime: Runtime.NODEJS_12_X,
       timeout: Duration.seconds(30),
       memorySize: 256,
@@ -57,13 +68,15 @@ class WebsocketDynamoDBStack extends Stack {
         })
       ],
       environment: {
-        TABLE_NAME: tableName,
+        DOCS_TABLE_NAME: docsTable.tableName,
+        CONNECTIONS_TABLE_NAME: connectionsTable.tableName,
       }
     })
 
     // Add lambda permissions
 
-    table.grantReadWriteData(messageFunc)
+    docsTable.grantReadWriteData(messageFunc)
+    connectionsTable.grantReadWriteData(messageFunc)
 
     // Lambda autoscaling (destroy cold starts)
 
