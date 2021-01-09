@@ -1,3 +1,3 @@
 {
-  "app": "stack.js"
+  "app": "node index"
 }
