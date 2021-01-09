@@ -9,14 +9,14 @@ const pageStyle = css`
 `
 
 const App = () => (
-  <>
+  <React.Fragment>
     <div className={pageStyle}>
       <h1>Slate</h1>
       <SlateEditor />
       <h1>Quill</h1>
       <QuillEditor />
     </div>
-  </>
+  </React.Fragment>
 )
 
 ReactDOM.render(<App />, document.getElementById('root'))
