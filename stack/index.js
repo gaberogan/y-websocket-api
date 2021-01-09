@@ -1,14 +1,13 @@
 #!/usr/bin/env node
-import {AssetCode, Function, Runtime} from "@aws-cdk/aws-lambda";
-import {CfnApi, CfnDeployment, CfnIntegration, CfnRoute, CfnStage} from "@aws-cdk/aws-apigatewayv2";
-import {App, ConcreteDependable, Construct, Duration, RemovalPolicy, Stack, StackProps} from '@aws-cdk/core';
-import {Effect, ManagedPolicy, PolicyStatement, Role, ServicePrincipal } from "@aws-cdk/aws-iam";
-import {AttributeType, Table} from "@aws-cdk/aws-dynamodb";
-
-import config from './config.json';
+const {AssetCode, Function, Runtime} = require("@aws-cdk/aws-lambda")
+const {CfnApi, CfnDeployment, CfnIntegration, CfnRoute, CfnStage} = require("@aws-cdk/aws-apigatewayv2")
+const {App, ConcreteDependable, Duration, RemovalPolicy, Stack} = require('@aws-cdk/core')
+const {Effect, ManagedPolicy, PolicyStatement, Role, ServicePrincipal} = require("@aws-cdk/aws-iam")
+const {AttributeType, Table} = require("@aws-cdk/aws-dynamodb")
+const config = require('./config.json')
 
 class ChatAppStack extends Stack {
-    constructor(scope: Construct, id: string, props?: StackProps) {
+    constructor(scope, id, props) {
         super(scope, id, props);
         const tableName = "simplechat_connections";
 
