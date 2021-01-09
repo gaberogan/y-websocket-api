@@ -3,7 +3,8 @@
     "moduleResolution": "node",
     "target": "esnext",
     "checkJs": true,
-    "jsx": "react"
+    "jsx": "react",
+    "resolveJsonModule": true
   },
   "exclude": [
     "node_modules",
