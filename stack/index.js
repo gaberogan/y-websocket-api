@@ -1,7 +1,7 @@
 const {AssetCode, Function, Runtime} = require('@aws-cdk/aws-lambda')
 const {CfnApi, CfnDeployment, CfnIntegration, CfnRoute, CfnStage} = require('@aws-cdk/aws-apigatewayv2')
 const {App, ConcreteDependable, Duration, RemovalPolicy, Stack} = require('@aws-cdk/core')
-const {Effect, ManagedPolicy, PolicyStatement, Role, ServicePrincipal} = require('@aws-cdk/aws-iam')
+const {Effect, PolicyStatement, Role, ServicePrincipal} = require('@aws-cdk/aws-iam')
 const {AttributeType, Table, BillingMode} = require('@aws-cdk/aws-dynamodb')
 const config = require('./config.json')
 
@@ -33,28 +33,16 @@ class WebsocketDynamoDBStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY, // TODO for prod use RETAIN
     })
 
-    // Initialize lambda and permissions
-
-    const lambdaPolicy = new PolicyStatement({
-      actions: ['dynamodb:*'],
-      resources: [table.tableArn],
-    })
-
-    const messageLambdaRole = new Role(this, `${name}-message-lambda-role`, {
-      assumedBy: new ServicePrincipal('lambda.amazonaws.com'),
-    })
-    messageLambdaRole.addToPolicy(lambdaPolicy)
-    messageLambdaRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'))
+    // Initialize lambda
 
     const messageFunc = new Function(this, `${name}-message-lambda`, {
       code: new AssetCode('../server/build'),
       handler: 'handler/aws.handler',
       runtime: Runtime.NODEJS_12_X,
-      timeout: Duration.seconds(300),
+      timeout: Duration.seconds(30),
       memorySize: 256,
-      role: messageLambdaRole,
-      // CloudFormation tries to delete lambda before moving alias, this fixes the error:
       currentVersionOptions: {
+        // CloudFormation tries to delete lambda before moving alias, this fixes the error:
         removalPolicy: RemovalPolicy.RETAIN
       },
       initialPolicy: [
@@ -72,6 +60,10 @@ class WebsocketDynamoDBStack extends Stack {
         TABLE_NAME: tableName,
       }
     })
+
+    // Add lambda permissions
+
+    table.grantReadWriteData(messageFunc)
 
     // Lambda autoscaling (destroy cold starts)
 
