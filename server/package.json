@@ -5,7 +5,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "nodemon handler/local"
+    "start": "nodemon src/handler/local",
+    "build": "rimraf build && babel . -d build && npm run build-install",
+    "build-install": "cp -t build package.json package-lock.json && npm ci --production --prefix build"
   },
   "exports": {
     "./": "./"
@@ -14,18 +16,19 @@
     "delay": "250"
   },
   "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.17.1",
     "lib0": "^0.2.35",
     "lodash.debounce": "^4.0.8",
-    "slate-yjs": "^0.1.7",
-    "ws": "^7.4.2",
-    "y-leveldb": "^0.1.0",
     "y-protocols": "^1.0.2",
     "yjs": "^13.4.9"
   },
   "devDependencies": {
-    "eslint": "^7.16.0",
-    "nodemon": "^2.0.6"
+    "@babel/cli": "^7.12.10",
+    "@babel/core": "^7.12.10",
+    "@babel/preset-env": "^7.12.11",
+    "eslint": "^7.17.0",
+    "nodemon": "^2.0.6",
+    "rimraf": "^3.0.2",
+    "ws": "^7.4.2",
+    "y-leveldb": "^0.1.0"
   }
 }
