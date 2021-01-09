@@ -6,6 +6,15 @@ import * as promise from 'lib0/promise.js'
 // @ts-ignore
 import defaultLevel from 'level'
 import { Buffer } from 'buffer'
+// import AWS from 'aws-sdk'
+
+// TODO configure aws
+// AWS.config.update({
+//   region: 'us-east-1',
+//   endpoint: 'http://localhost:8000',
+// })
+
+// var docClient = new AWS.DynamoDB.DocumentClient()
 
 export const PREFERRED_TRIM_SIZE = 500
 
@@ -90,91 +99,23 @@ export const keyEncoding = {
   }
 }
 
-/**
- * Level expects a Buffer, but in Yjs we typically work with Uint8Arrays.
- *
- * Since Level thinks that these are two entirely different things,
- * we transform the Uint8array to a Buffer before storing it.
- *
- * @param {any} db
- * @param {any} key
- * @param {Uint8Array} val
- */
-const levelPut = async (db, key, val) => db.put(key, Buffer.from(val))
-
-/**
- * A "bulkier" implementation of level streams. Returns the result in one flush.
- *
- * @param {any} db
- * @param {object} opts
- * @return {Promise<Array<any>>}
- */
-export const getLevelBulkData = (db, opts) => promise.create((resolve, reject) => {
-  /**
-   * @type {Array<any>} result
-   */
-  const result = []
-  db.createReadStream(
-    opts
-  ).on('data', /** @param {any} data */ data =>
-    result.push(data)
-  ).on('end', () =>
-    resolve(result)
-  ).on('error', reject)
-})
-
-/**
- * Get all document updates for a specific document.
- *
- * @param {any} db
- * @param {string} docName
- * @param {any} [opts]
- * @return {Promise<Array<Buffer>>}
- */
-export const getLevelUpdates = (db, docName, opts = { values: true, keys: false }) => getLevelBulkData(db, {
-  gte: createDocumentUpdateKey(docName, 0),
-  lt: createDocumentUpdateKey(docName, binary.BITS32),
-  ...opts
-})
-
-/**
- * @param {any} db
- * @param {string} docName
- * @return {Promise<number>} Returns -1 if this document doesn't exist yet
- */
-export const getCurrentUpdateClock = (db, docName) => getLevelUpdates(db, docName, { keys: true, values: false, reverse: true, limit: 1 }).then(keys => {
-  if (keys.length === 0) {
+export const getCurrentUpdateClock = (db, docName) => db.query({
+  TableName: process.env.TABLE_NAME,
+  ScanIndexForward: false,
+  Limit: 1,
+  ProjectionExpression: 'Key',
+  KeyConditionExpression: 'Key >= :gte and Key < :lt',
+  ExpressionAttributeValues: {
+    ':gte': createDocumentUpdateKey(docName, 0),
+    ':lt': createDocumentUpdateKey(docName, binary.BITS32),
+  },
+}).promise().then(response => {
+  if (response.Items.length === 0) {
     return -1
   } else {
-    return keys[0][3]
+    return Number(response.Items[0].Key.S.split('update').slice(-1)[0])
   }
 })
-
-/**
- * @param {any} db
- * @param {Array<string|number>} gte Greater than or equal
- * @param {Array<string|number>} lt lower than (not equal)
- * @return {Promise<void>}
- */
-const clearRange = async (db, gte, lt) => {
-  /* istanbul ignore else */
-  if (db.supports.clear) {
-    await db.clear({ gte, lt })
-  } else {
-    const keys = await getLevelBulkData(db, { values: false, keys: true, gte, lt })
-    const ops = keys.map(key => ({ type: 'del', key }))
-    await db.batch(ops)
-  }
-}
-
-/**
- * @param {any} db
- * @param {string} docName
- * @param {number} from Greater than or equal
- * @param {number} to lower than (not equal)
- * @return {Promise<void>}
- */
-const clearUpdatesRange = async (db, docName, from, to) => clearRange(db, createDocumentUpdateKey(docName, from), createDocumentUpdateKey(docName, to))
 
 /**
  * Create a unique key for a update message.
@@ -182,34 +123,16 @@ const clearUpdatesRange = async (db, docName, from, to) => clearRange(db, create
  *
  * @param {string} docName
  * @param {number} clock must be unique
- * @return {Array<string|number>}
+ * @return {string}
  */
-const createDocumentUpdateKey = (docName, clock) => ['v1', docName, 'update', clock]
+const createDocumentUpdateKey = (docName, clock) => ['v1', docName, 'update', clock].join('')
 
 /**
  * We have a separate state vector key so we can iterate efficiently over all documents
  * @param {string} docName
+ * @return {string}
  */
-const createDocumentStateVectorKey = (docName) => ['v1_sv', docName]
-
-// const emptyStateVector = (() => Y.encodeStateVector(new Y.Doc()))()
-
-/**
- * For now this is a helper method that creates a Y.Doc and then re-encodes a document update.
- * In the future this will be handled by Yjs without creating a Y.Doc (constant memory consumption).
- *
- * @param {Array<Uint8Array>} updates
- * @return {{update:Uint8Array, sv: Uint8Array}}
- */
-const mergeUpdates = (updates) => {
-  const ydoc = new Y.Doc()
-  ydoc.transact(() => {
-    for (let i = 0; i < updates.length; i++) {
-      Y.applyUpdate(ydoc, updates[i])
-    }
-  })
-  return { update: Y.encodeStateAsUpdate(ydoc), sv: Y.encodeStateVector(ydoc) }
-}
+const createDocumentStateVectorKey = (docName) => ['v1_sv', docName].join('')
 
 /**
  * @param {any} db
@@ -221,21 +144,20 @@ const writeStateVector = async (db, docName, sv, clock) => {
   const encoder = encoding.createEncoder()
   encoding.writeVarUint(encoder, clock)
   encoding.writeVarUint8Array(encoder, sv)
-  await levelPut(db, createDocumentStateVectorKey(docName), encoding.toUint8Array(encoder))
-}
-
-/**
- * @param {any} db
- * @param {string} docName
- * @param {Uint8Array} stateAsUpdate
- * @param {Uint8Array} stateVector
- * @return {Promise<number>} returns the clock of the flushed doc
- */
-const flushDocument = async (db, docName, stateAsUpdate, stateVector) => {
-  const clock = await storeUpdate(db, docName, stateAsUpdate)
-  await writeStateVector(db, docName, stateVector, clock)
-  await clearUpdatesRange(db, docName, 0, clock) // intentionally not waiting for the promise to resolve!
-  return clock
+  await db.putItem({
+    TableName: process.env.TABLE_NAME,
+    Item: {
+      PartitionKey: {
+        S: docName,
+      },
+      Key: {
+        S: createDocumentStateVectorKey(docName),
+      },
+      Value: {
+        B: Buffer.from(encoding.toUint8Array(encoder)),
+      },
+    },
+  }).promise()
 }
 
 /**
@@ -245,6 +167,7 @@ const flushDocument = async (db, docName, stateAsUpdate, stateVector) => {
  * @return {Promise<number>} Returns the clock of the stored update
  */
 const storeUpdate = async (db, docName, update) => {
+  // NOTE this means writes are 3 round trips to dynamodb (45ms?)
   const clock = await getCurrentUpdateClock(db, docName)
   if (clock === -1) {
     // make sure that a state vector is aways written, so we can search for available documents
@@ -253,7 +176,20 @@ const storeUpdate = async (db, docName, update) => {
     const sv = Y.encodeStateVector(ydoc)
     await writeStateVector(db, docName, sv, 0)
   }
-  await levelPut(db, createDocumentUpdateKey(docName, clock + 1), update)
+  await db.putItem({
+    TableName: process.env.TABLE_NAME,
+    Item: {
+      PartitionKey: {
+        S: docName,
+      },
+      Key: {
+        S: createDocumentUpdateKey(docName, clock + 1),
+      },
+      Value: {
+        B: Buffer.from(update),
+      },
+    },
+  }).promise()
   return clock + 1
 }
 
@@ -261,7 +197,7 @@ export class DynamoDBPersistence {
   /**
    * @param {string} location
    * @param {object} [opts]
-   * @param {any} [opts.level] Level-compatible adapter. E.g. leveldown, level-rem, level-indexeddb. Defaults to `level`
+   * @param {any} [opts.level] Level-compatible adapter. E.g. leveldown, level-rem, level-indexeddb, Defaults to `level`
    * @param {object} [opts.levelOptions] Options that are passed down to the level instance
    */
   constructor (location, /* istanbul ignore next */ { level = defaultLevel, levelOptions = {} } = {}) {
@@ -298,31 +234,25 @@ export class DynamoDBPersistence {
 
   /**
    * @param {string} docName
-   */
-  flushDocument (docName) {
-    return this._transact(async db => {
-      const updates = await getLevelUpdates(db, docName)
-      const { update, sv } = mergeUpdates(updates)
-      await flushDocument(db, docName, update, sv)
-    })
-  }
-
-  /**
-   * @param {string} docName
    * @return {Promise<Y.Doc>}
    */
   getYDoc (docName) {
     return this._transact(async db => {
-      const updates = await getLevelUpdates(db, docName)
+      const { Items } = await db.query({
+        TableName: process.env.TABLE_NAME,
+        ProjectionExpression: 'Value',
+        KeyConditionExpression: 'Key >= :gte and Key < :lt',
+        ExpressionAttributeValues: {
+          ':gte': createDocumentUpdateKey(docName, 0),
+          ':lt': createDocumentUpdateKey(docName, binary.BITS32),
+        },
+      }).promise()
       const ydoc = new Y.Doc()
       ydoc.transact(() => {
-        for (let i = 0; i < updates.length; i++) {
-          Y.applyUpdate(ydoc, updates[i])
+        for (let i = 0; i < Items.length; i++) {
+          Y.applyUpdate(ydoc, Items[i].map(item => item.Value.B)) // TODO make sure this is a uint8array
         }
       })
-      if (updates.length > PREFERRED_TRIM_SIZE) {
-        await flushDocument(db, docName, Y.encodeStateAsUpdate(ydoc), Y.encodeStateVector(ydoc))
-      }
       return ydoc
     })
   }
@@ -335,33 +265,17 @@ export class DynamoDBPersistence {
   storeUpdate (docName, update) {
     return this._transact(db => storeUpdate(db, docName, update))
   }
-
-  /**
-   * Close connection to a leveldb database and discard all state and bindings
-   *
-   * @return {Promise<void>}
-   */
-  destroy () {
-    return this._transact(db => db.close())
-  }
-
-  /**
-   * Delete all data in database.
-   */
-  clearAll () {
-    return this._transact(async db => db.clear())
-  }
 }
 
-const ldb = new DynamoDBPersistence('TODOremove')
+const dynamoPeristence = new DynamoDBPersistence('TODOremove')
 
 const bindState = async (docName, ydoc) => {
-  const persistedYdoc = await ldb.getYDoc(docName)
+  const persistedYdoc = await dynamoPeristence.getYDoc(docName)
   const newUpdates = Y.encodeStateAsUpdate(ydoc)
-  ldb.storeUpdate(docName, newUpdates)
+  dynamoPeristence.storeUpdate(docName, newUpdates)
   Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(persistedYdoc))
   ydoc.on('update', update => {
-    ldb.storeUpdate(docName, update)
+    dynamoPeristence.storeUpdate(docName, update)
   })
 }
 
