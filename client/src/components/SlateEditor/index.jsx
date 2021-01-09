@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useCallback, useMemo, useState } from 'react'
 import isHotkey from 'is-hotkey'
 import { Editable, withReact, useSlate, Slate } from 'slate-react'
@@ -72,21 +73,21 @@ const SlateEditor = () => {
         )}
         {editable && (
           <Editable
-          renderElement={renderElement}
-          renderLeaf={renderLeaf}
-          placeholder="Enter some rich text…"
-          spellCheck
-          // autoFocus // NOTE this breaks it!
-          onKeyDown={event => {
-            for (const hotkey in HOTKEYS) {
-              if (isHotkey(hotkey, event)) {
-                event.preventDefault()
-                const mark = HOTKEYS[hotkey]
-                toggleMark(editor, mark)
+            renderElement={renderElement}
+            renderLeaf={renderLeaf}
+            placeholder="Enter some rich text…"
+            spellCheck
+            // autoFocus // NOTE this breaks it!
+            onKeyDown={event => {
+              for (const hotkey in HOTKEYS) {
+                if (isHotkey(hotkey, event)) {
+                  event.preventDefault()
+                  const mark = HOTKEYS[hotkey]
+                  toggleMark(editor, mark)
+                }
               }
-            }
-          }}
-        />
+            }}
+          />
         )}
       </Slate>
     </ExampleContent>
@@ -141,20 +142,20 @@ const isMarkActive = (editor, format) => {
 
 const Element = ({ attributes, children, element }) => {
   switch (element.type) {
-    case 'block-quote':
-      return <blockquote {...attributes}>{children}</blockquote>
-    case 'bulleted-list':
-      return <ul {...attributes}>{children}</ul>
-    case 'heading-one':
-      return <h1 {...attributes}>{children}</h1>
-    case 'heading-two':
-      return <h2 {...attributes}>{children}</h2>
-    case 'list-item':
-      return <li {...attributes}>{children}</li>
-    case 'numbered-list':
-      return <ol {...attributes}>{children}</ol>
-    default:
-      return <p {...attributes}>{children}</p>
+  case 'block-quote':
+    return <blockquote {...attributes}>{children}</blockquote>
+  case 'bulleted-list':
+    return <ul {...attributes}>{children}</ul>
+  case 'heading-one':
+    return <h1 {...attributes}>{children}</h1>
+  case 'heading-two':
+    return <h2 {...attributes}>{children}</h2>
+  case 'list-item':
+    return <li {...attributes}>{children}</li>
+  case 'numbered-list':
+    return <ol {...attributes}>{children}</ol>
+  default:
+    return <p {...attributes}>{children}</p>
   }
 }
 

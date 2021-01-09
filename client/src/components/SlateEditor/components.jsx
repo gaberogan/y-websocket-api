@@ -1,3 +1,6 @@
+/* eslint-disable react/display-name */
+// @ts-nocheck
+
 import React from 'react'
 import ReactDOM from 'react-dom'
 import { cx, css } from '@emotion/css'
@@ -12,12 +15,12 @@ export const Button = React.forwardRef(
         css`
           cursor: pointer;
           color: ${reversed
-            ? active
-              ? 'white'
-              : '#aaa'
-            : active
-            ? 'black'
-            : '#ccc'};
+      ? active
+        ? 'white'
+        : '#aaa'
+      : active
+        ? 'black'
+        : '#ccc'};
         `
       )}
     />
@@ -50,7 +53,7 @@ export const EditorValue = React.forwardRef(
             background: #f8f8f8;
           `}
         >
-          Slate's value as text
+          Slate&apos;s value as text
         </div>
         <div
           className={css`
