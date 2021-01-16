@@ -11,54 +11,33 @@ import encoding from 'lib0/dist/encoding.cjs'
 import decoding from 'lib0/dist/decoding.cjs'
 // @ts-ignore
 import mutex from 'lib0/dist/mutex.cjs'
-import debounce from 'lodash.debounce'
-import http from 'http'
 import { persistence } from '../db/local.js'
 
 export const externals = {
   send: null,
 }
 
-const CALLBACK_DEBOUNCE_WAIT = parseInt(process.env.CALLBACK_DEBOUNCE_WAIT) || 2000
-const CALLBACK_DEBOUNCE_MAXWAIT = parseInt(process.env.CALLBACK_DEBOUNCE_MAXWAIT) || 10000
-
 const gcEnabled = process.env.GC !== 'false' && process.env.GC !== '0'
 
 const messageSync = 0
 const messageAwareness = 1
-// const messageAuth = 2
 
-// TODO
-// Think of the below code as 'connect' hook
-//   ensure doc sync to db (use await all!)
-// think of onMessage as 'message' hook
-//   fetch doc via id (use await all!)
-// think of closeConn as async 'disconnect' hook
-//   ensure doc + connection are removed from db (use await all!)
-// other
-//   callbackWaitsForEmptyEventLoop = true should allow the doc to sync?
-//   can we sync it instantly?
-//   use pure functions for connect/message/disconnect
-//   ensure data is interpreted as arraybuffer not blob
-//   sometimes locally initial sync is slow maybe we can force it?
+// NOTE
+// 1. callbackWaitsForEmptyEventLoop = true should allow the doc to sync?
+// 2. can we sync it instantly?
+// 3. use pure functions for connect/message/disconnect
+// 4. ensure data is interpreted as arraybuffer not blob
+// 5. sometimes locally initial sync is slow maybe we can force it?
 
-export const onConnect = ({ conn, docName, gc }) => {
-  // TODO handle auth here (can throw)
-
-  // Initialize doc + add conn
-  const doc = new WSSharedDoc(docName)
-  doc.gc = gc
-  if (persistence !== null) {
-    persistence.bindState(docName, doc)
-  }
-  doc.conns.set(conn, new Set())
-
-  // send sync step 1
+export const onConnect = ({ conn, doc }) => {
+  // send sync step 1, initiating connection?
   const encoder = encoding.createEncoder()
   encoding.writeVarUint(encoder, messageSync)
   syncProtocol.writeSyncStep1(encoder, doc)
   externals.send(doc, conn, encoding.toUint8Array(encoder))
   const awarenessStates = doc.awareness.getStates()
+  // on connect send awareness from other users (will be different with AWS because this needed to be stateful)
+  // we probably don't want to persist awareness since we can send updates client side every couple seconds or something
   if (awarenessStates.size > 0) {
     const encoder = encoding.createEncoder()
     encoding.writeVarUint(encoder, messageAwareness)
@@ -74,6 +53,8 @@ export const onMessage = (conn, doc, message) => {
   const decoder = decoding.createDecoder(message)
   const messageType = decoding.readVarUint(decoder)
   switch (messageType) {
+  // Case sync1: Read SyncStep1 message and reply with SyncStep2 (write input to output and format as syncstep2 to all clientsf)
+  // Case sync2 or yjsUpdate: Read and apply Structs and then DeleteStore to a y instance (append to db)
   case messageSync:
     encoding.writeVarUint(encoder, messageSync)
     syncProtocol.readSyncMessage(decoder, encoder, doc, null)
@@ -81,6 +62,9 @@ export const onMessage = (conn, doc, message) => {
       externals.send(doc, conn, encoding.toUint8Array(encoder))
     }
     break
+  // Client sent its awareness state. Store locally and emit to allow broadcast to fire
+  // Seems like deletions aren't transmitted, just assumed if the client didn't get an update in the past X mins
+  // Seems like we can just broadcast each update and not worry about storing it.
   case messageAwareness: {
     awarenessProtocol.applyAwarenessUpdate(doc.awareness, decoding.readVarUint8Array(decoder), conn)
     break
@@ -88,6 +72,7 @@ export const onMessage = (conn, doc, message) => {
   }
 }
 
+// Cleanup (+ tell others we disconnected via awareness)
 export const onDisconnect = ({ doc, conn }) => {
   if (doc.conns.has(conn)) {
     /**
@@ -116,6 +101,7 @@ export class WSSharedDoc extends Y.Doc {
     this.awareness.setLocalState(null)
   
     /**
+     * On receiving awareness change, broadcast list of stringified states of changed clients
      * @param {{ added: Array<number>, updated: Array<number>, removed: Array<number> }} changes
      * @param {Object | null} conn Origin is the connection that made the change
      */
@@ -138,86 +124,17 @@ export class WSSharedDoc extends Y.Doc {
       })
     }
   
+    // Setup listeners for awareness change and doc update that send state to client (no persistence logic)
     this.awareness.on('update', awarenessChangeHandler)
     this.on('update', updateHandler)
-
-    if (isCallbackSet) {
-      this.on('update', debounce(
-        callbackHandler,
-        CALLBACK_DEBOUNCE_WAIT,
-        { maxWait: CALLBACK_DEBOUNCE_MAXWAIT }
-      ))
-    }
   }
 }
 
+// Encode update arg and send it to all clients
 const updateHandler = (update, origin, doc) => {
   const encoder = encoding.createEncoder()
   encoding.writeVarUint(encoder, messageSync)
   syncProtocol.writeUpdate(encoder, update)
   const message = encoding.toUint8Array(encoder)
   doc.conns.forEach((_, conn) => externals.send(doc, conn, message))
-}
-
-// used to be callback.js -------------------------------------------------
-
-const CALLBACK_URL = process.env.CALLBACK_URL ? new URL(process.env.CALLBACK_URL) : null
-const CALLBACK_TIMEOUT = process.env.CALLBACK_TIMEOUT || 5000
-const CALLBACK_OBJECTS = process.env.CALLBACK_OBJECTS ? JSON.parse(process.env.CALLBACK_OBJECTS) : {}
-
-const isCallbackSet = !!CALLBACK_URL
-
-const callbackHandler = (update, origin, doc) => {
-  const room = doc.name
-  const dataToSend = {
-    room: room,
-    data: {}
-  }
-  const sharedObjectList = Object.keys(CALLBACK_OBJECTS)
-  sharedObjectList.forEach(sharedObjectName => {
-    const sharedObjectType = CALLBACK_OBJECTS[sharedObjectName]
-    dataToSend.data[sharedObjectName] = {
-      type: sharedObjectType,
-      content: getContent(sharedObjectName, sharedObjectType, doc).toJSON()
-    }
-  })
-  // @ts-ignore
-  callbackRequest(CALLBACK_URL, CALLBACK_TIMEOUT, dataToSend)
-}
-
-const callbackRequest = (url, timeout, data) => {
-  data = JSON.stringify(data)
-  const options = {
-    hostname: url.hostname,
-    port: url.port,
-    path: url.pathname,
-    timeout: timeout,
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': data.length
-    }
-  }
-  var req = http.request(options)
-  req.on('timeout', () => {
-    console.warn('Callback request timed out.')
-    req.abort()
-  })
-  req.on('error', (e) => {
-    console.error('Callback request error.', e)
-    req.abort()
-  })
-  req.write(data)
-  req.end()
-}
-
-const getContent = (objName, objType, doc) => {
-  switch (objType) {
-  case 'Array': return doc.getArray(objName)
-  case 'Map': return doc.getMap(objName)
-  case 'Text': return doc.getText(objName)
-  case 'XmlFragment': return doc.getXmlFragment(objName)
-  case 'XmlElement': return doc.getXmlElement(objName)
-  default : return {}
-  }
 }
