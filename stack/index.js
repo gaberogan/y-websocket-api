@@ -25,10 +25,10 @@ class WebsocketDynamoDBStack extends Stack {
         name: 'PartitionKey',
         type: AttributeType.STRING,
       },
-      sortKey: {
-        name: 'SortKey',
-        type: AttributeType.STRING,
-      },
+      // sortKey: { TODO remove
+      //   name: 'SortKey',
+      //   type: AttributeType.STRING,
+      // },
       tableName: 'docs',
       billingMode: BillingMode.PAY_PER_REQUEST,
       removalPolicy: RemovalPolicy.DESTROY, // TODO for prod use RETAIN
@@ -37,6 +37,10 @@ class WebsocketDynamoDBStack extends Stack {
     const connectionsTable = new Table(this, `${name}-connections-table`, {
       partitionKey: {
         name: 'PartitionKey',
+        type: AttributeType.STRING,
+      },
+      sortKey: { // TODO add
+        name: 'SortKey',
         type: AttributeType.STRING,
       },
       tableName: 'connections',
@@ -48,7 +52,7 @@ class WebsocketDynamoDBStack extends Stack {
 
     const messageFunc = new Function(this, `${name}-message-lambda`, {
       code: new AssetCode('../server/build'),
-      handler: 'index.handler', // TODO use rollup
+      handler: 'index.handler',
       runtime: Runtime.NODEJS_12_X,
       timeout: Duration.seconds(30),
       memorySize: 256,

@@ -12,7 +12,7 @@ const QuillEditor = () => {
     Quill.register('modules/cursors', QuillCursors)
 
     const ydoc = new Y.Doc()
-    const provider = new WebsocketProvider('ws://localhost:9000', 'my-quill-doc', ydoc)
+    const provider = new WebsocketProvider('ws://localhost:9000', '?doc=my-quill-doc', ydoc)
     const type = ydoc.getText('quill')
 
     const editor = new Quill('#editor-container', {

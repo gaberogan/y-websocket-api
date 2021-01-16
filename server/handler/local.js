@@ -1,6 +1,7 @@
 import { externals, onDisconnect, onConnect, onMessage, WSSharedDoc } from './common.js'
 import WebSocket from 'ws'
 import http from 'http'
+import { URL } from 'url'
 import { persistence } from '../db/local.js'
 
 const wss = new WebSocket.Server({ noServer: true })
@@ -14,7 +15,7 @@ const server = http.createServer((request, response) => {
 })
 
 
-wss.on('connection', (conn, req, { docName = req.url.slice(1).split('?')[0], gc = true } = {}) => {
+wss.on('connection', (conn, req, { docName = new URL('ws://x.y' + req.url).searchParams.get('doc'), gc = true } = {}) => {
   conn.binaryType = 'arraybuffer'
 
   // Initialize doc + add conn
