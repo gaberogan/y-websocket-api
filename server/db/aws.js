@@ -1,32 +1,18 @@
+import { DynamoDBClient, PutItemCommand, QueryCommand } from '@aws-sdk/client-dynamodb'
 import * as Y from 'yjs'
 import * as encoding from 'lib0/encoding.js'
 import * as decoding from 'lib0/decoding.js'
 import * as binary from 'lib0/binary.js'
 import * as promise from 'lib0/promise.js'
-// @ts-ignore
-import defaultLevel from 'level'
 import { Buffer } from 'buffer'
-// import AWS from 'aws-sdk'
 
-// TODO configure aws
-// AWS.config.update({
-//   region: 'us-east-1',
-//   endpoint: 'http://localhost:8000',
-// })
-
-// var docClient = new AWS.DynamoDB.DocumentClient()
-
-export const PREFERRED_TRIM_SIZE = 500
+// NOTE
+// 1. removed PREFERRED_TRIM_SIZE from AWS implementation
+// 2. removed transactions from AWS implementation
+// 3. storeItem is 3 round trips to db, might want a transaction here
 
 const YEncodingString = 0
 const YEncodingUint32 = 1
-
-const valueEncoding = {
-  buffer: true,
-  type: 'y-value',
-  encode: /** @param {any} data */ data => data,
-  decode: /** @param {any} data */ data => data
-}
 
 /**
  * Write two bytes as an unsigned integer in big endian order.
@@ -99,23 +85,23 @@ export const keyEncoding = {
   }
 }
 
-export const getCurrentUpdateClock = (db, docName) => db.query({
-  TableName: process.env.TABLE_NAME,
-  ScanIndexForward: false,
-  Limit: 1,
-  ProjectionExpression: 'Key',
-  KeyConditionExpression: 'Key >= :gte and Key < :lt',
-  ExpressionAttributeValues: {
-    ':gte': createDocumentUpdateKey(docName, 0),
-    ':lt': createDocumentUpdateKey(docName, binary.BITS32),
-  },
-}).promise().then(response => {
-  if (response.Items.length === 0) {
-    return -1
-  } else {
-    return Number(response.Items[0].Key.S.split('update').slice(-1)[0])
-  }
-})
+// export const getCurrentUpdateClock = (db, docName) => db.query({
+//   TableName: process.env.TABLE_NAME,
+//   ScanIndexForward: false,
+//   Limit: 1,
+//   ProjectionExpression: 'Key',
+//   KeyConditionExpression: 'Key >= :gte and Key < :lt',
+//   ExpressionAttributeValues: {
+//     ':gte': createDocumentUpdateKey(docName, 0),
+//     ':lt': createDocumentUpdateKey(docName, binary.BITS32),
+//   },
+// }).promise().then(response => {
+//   if (response.Items.length === 0) {
+//     return -1
+//   } else {
+//     return Number(response.Items[0].Key.S.split('update').slice(-1)[0])
+//   }
+// })
 
 /**
  * Create a unique key for a update message.
@@ -125,14 +111,14 @@ export const getCurrentUpdateClock = (db, docName) => db.query({
  * @param {number} clock must be unique
  * @return {string}
  */
-const createDocumentUpdateKey = (docName, clock) => ['v1', docName, 'update', clock].join('')
+// const createDocumentUpdateKey = (docName, clock) => ['v1', docName, 'update', clock].join('')
 
 /**
  * We have a separate state vector key so we can iterate efficiently over all documents
  * @param {string} docName
  * @return {string}
  */
-const createDocumentStateVectorKey = (docName) => ['v1_sv', docName].join('')
+// const createDocumentStateVectorKey = (docName) => ['v1_sv', docName].join('')
 
 /**
  * @param {any} db
@@ -167,7 +153,6 @@ const writeStateVector = async (db, docName, sv, clock) => {
  * @return {Promise<number>} Returns the clock of the stored update
  */
 const storeUpdate = async (db, docName, update) => {
-  // NOTE this means writes are 3 round trips to dynamodb (45ms?)
   const clock = await getCurrentUpdateClock(db, docName)
   if (clock === -1) {
     // make sure that a state vector is aways written, so we can search for available documents
@@ -183,7 +168,7 @@ const storeUpdate = async (db, docName, update) => {
         S: docName,
       },
       Key: {
-        S: createDocumentUpdateKey(docName, clock + 1),
+        S: createDocumentUpdateKey(docName, clock + 1), // TODO autoincrement like redis?
       },
       Value: {
         B: Buffer.from(update),
@@ -195,14 +180,11 @@ const storeUpdate = async (db, docName, update) => {
 
 export class DynamoDBPersistence {
   /**
-   * @param {string} location
-   * @param {object} [opts]
-   * @param {any} [opts.level] Level-compatible adapter. E.g. leveldown, level-rem, level-indexeddb, Defaults to `level`
-   * @param {object} [opts.levelOptions] Options that are passed down to the level instance
+   * @param {string} region AWS Region
    */
-  constructor (location, /* istanbul ignore next */ { level = defaultLevel, levelOptions = {} } = {}) {
-    const db = level(location, { ...levelOptions, valueEncoding, keyEncoding })
-    this.tr = promise.resolve()
+  constructor (region) {
+    const db = new DynamoDBClient({ apiVersion: '2012-08-10', region })
+    // this.tr = promise.resolve()
     /**
      * Execute an transaction on a database. This will ensure that other processes are currently not writing.
      *
@@ -215,46 +197,46 @@ export class DynamoDBPersistence {
      * @param {function(any):Promise<T>} f A transaction that receives the db object
      * @return {Promise<T>}
      */
-    this._transact = f => {
-      const currTr = this.tr
-      this.tr = (async () => {
-        await currTr
-        let res = /** @type {any} */ (null)
-        try {
-          res = await f(db)
-        } catch (err) {
-          /* istanbul ignore next */
-          console.warn('Error during y-leveldb transaction', err)
-        }
-        return res
-      })()
-      return this.tr
-    }
+    // this._transact = f => {
+    //   const currTr = this.tr
+    //   this.tr = (async () => {
+    //     await currTr
+    //     let res = /** @type {any} */ (null)
+    //     try {
+    //       res = await f(db)
+    //     } catch (err) {
+    //       /* istanbul ignore next */
+    //       console.warn('Error during y-leveldb transaction', err)
+    //     }
+    //     return res
+    //   })()
+    //   return this.tr
+    // }
   }
 
   /**
    * @param {string} docName
    * @return {Promise<Y.Doc>}
    */
-  getYDoc (docName) {
-    return this._transact(async db => {
-      const { Items } = await db.query({
-        TableName: process.env.TABLE_NAME,
-        ProjectionExpression: 'Value',
-        KeyConditionExpression: 'Key >= :gte and Key < :lt',
-        ExpressionAttributeValues: {
-          ':gte': createDocumentUpdateKey(docName, 0),
-          ':lt': createDocumentUpdateKey(docName, binary.BITS32),
-        },
-      }).promise()
-      const ydoc = new Y.Doc()
-      ydoc.transact(() => {
-        for (let i = 0; i < Items.length; i++) {
-          Y.applyUpdate(ydoc, Items[i].map(item => item.Value.B)) // TODO make sure this is a uint8array
-        }
-      })
-      return ydoc
+  async getYDoc (docName) {
+    // return this._transact(async db => {
+    const { Items } = await db.query({
+      TableName: process.env.TABLE_NAME,
+      ProjectionExpression: 'Value',
+      KeyConditionExpression: 'Key >= :gte and Key < :lt',
+      ExpressionAttributeValues: {
+        ':gte': createDocumentUpdateKey(docName, 0),
+        ':lt': createDocumentUpdateKey(docName, binary.BITS32),
+      },
+    }).promise()
+    const ydoc = new Y.Doc()
+    ydoc.transact(() => {
+      for (let i = 0; i < Items.length; i++) {
+        Y.applyUpdate(ydoc, Items[i].map(item => item.Value.B)) // TODO make sure this is a uint8array
+      }
     })
+    return ydoc
+    // })
   }
 
   /**
@@ -267,19 +249,34 @@ export class DynamoDBPersistence {
   }
 }
 
-const dynamoPeristence = new DynamoDBPersistence('TODOremove')
+const dynamoPeristence = new DynamoDBPersistence(process.env.REGION)
 
+// TODO await this?
 const bindState = async (docName, ydoc) => {
-  const persistedYdoc = await dynamoPeristence.getYDoc(docName)
-  const newUpdates = Y.encodeStateAsUpdate(ydoc)
-  dynamoPeristence.storeUpdate(docName, newUpdates)
-  Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(persistedYdoc))
-  ydoc.on('update', update => {
+  const persistedYdoc = await dynamoPeristence.getYDoc(docName) // get doc
+  const newUpdates = Y.encodeStateAsUpdate(ydoc) // prepare to append update (empty?)
+  dynamoPeristence.storeUpdate(docName, newUpdates) // append update (empty?)
+  Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(persistedYdoc)) // pull in db doc updates to local doc on init
+  ydoc.on('update', update => { // append update on update message
     dynamoPeristence.storeUpdate(docName, update)
   })
 }
 
 export const persistence = {
   bindState,
-  writeState: async (docName, ydoc) => {} // eslint-disable-line
+  // writeState: async (docName, ydoc) => {} // eslint-disable-line
 }
+
+// export const persistence = {
+//   provider: ldb,
+//   bindState: async (docName, ydoc) => {
+//     const persistedYdoc = await ldb.getYDoc(docName)
+//     const newUpdates = Y.encodeStateAsUpdate(ydoc)
+//     ldb.storeUpdate(docName, newUpdates)
+//     Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(persistedYdoc))
+//     ydoc.on('update', update => {
+//       ldb.storeUpdate(docName, update)
+//     })
+//   },
+//   writeState: async (docName, ydoc) => {} // eslint-disable-line
+// }

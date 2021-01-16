@@ -15,6 +15,7 @@
     "delay": "250"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.3.0",
     "lib0": "^0.2.35",
     "lodash.debounce": "^4.0.8",
     "y-protocols": "^1.0.2",

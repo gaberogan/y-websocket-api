@@ -70,6 +70,7 @@ class WebsocketDynamoDBStack extends Stack {
       environment: {
         DOCS_TABLE_NAME: docsTable.tableName,
         CONNECTIONS_TABLE_NAME: connectionsTable.tableName,
+        REGION: config['region'],
       }
     })
 
