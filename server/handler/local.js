@@ -1,6 +1,7 @@
-import { externals, onDisconnect, onConnect, onMessage } from './common.js'
+import { externals, onDisconnect, onConnect, onMessage, WSSharedDoc } from './common.js'
 import WebSocket from 'ws'
 import http from 'http'
+import { persistence } from '../db/local.js'
 
 const wss = new WebSocket.Server({ noServer: true })
 const port = process.env.PORT || 9000
@@ -16,7 +17,16 @@ const server = http.createServer((request, response) => {
 wss.on('connection', (conn, req, { docName = req.url.slice(1).split('?')[0], gc = true } = {}) => {
   conn.binaryType = 'arraybuffer'
 
-  const doc = onConnect({ conn, docName, gc })
+  // Initialize doc + add conn
+  const doc = new WSSharedDoc(docName)
+  doc.gc = gc
+  if (persistence !== null) {
+    persistence.bindState(docName, doc)
+  }
+  doc.conns.set(conn, new Set())
+
+  // Send onConnect response
+  onConnect({ conn, doc })
 
   // listen and reply to events
   conn.on('message', /** @param {ArrayBuffer} message */ message => onMessage(conn, doc, new Uint8Array(message)))
