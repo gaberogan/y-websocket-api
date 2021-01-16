@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState, useEffect } from 'react'
 import isHotkey from 'is-hotkey'
 import { Editable, withReact, useSlate, Slate } from 'slate-react'
 import {
@@ -9,14 +9,11 @@ import {
   Element as SlateElement,
 } from 'slate'
 import { withHistory } from 'slate-history'
-import { withYjs, withWebsocket, toSyncDoc } from 'slate-yjs'
+import * as Y from 'yjs'
+import { withYjs, toSharedType } from 'slate-yjs'
+import { WebsocketProvider } from 'y-websocket'
 import { cx, css } from '@emotion/css'
 import { Button, Icon, Toolbar } from './components'
-
-const DEFAULT_VALUE = [{
-  type: 'paragraph',
-  children: [{ text: '' }],
-}]
 
 const HOTKEYS = {
   'mod+b': 'bold',
@@ -32,26 +29,42 @@ const SlateEditor = () => {
   const renderElement = useCallback(props => <Element {...props} />, [])
   const renderLeaf = useCallback(props => <Leaf {...props} />, [])
   const [editable, setEditable] = useState(false)
-  const editor = useMemo(() => {  
-    const slateEditor = withReact(withHistory(createEditor()))
 
-    const yjsEditor = withWebsocket(withYjs(slateEditor), {
-      roomName: 'my-slate-doc',
-      endpoint: 'ws://localhost:9000',
-      connect: true,
-    })
+  const [sharedType, provider] = useMemo(() => {
+    const doc = new Y.Doc()
+    const sharedType = doc.getArray('content')
+    const provider = new WebsocketProvider('ws://localhost:9000', 'my-slate-doc', doc)
+    return [sharedType, provider]
+  }, [])
 
-    // Persistence default doc is [] but slate requires at least one node
-    // so we add it here if empty to make persistence actually work
-    // https://github.com/BitPhinix/slate-yjs/discussions/111
-    yjsEditor.websocketProvider.on('sync', () => {
-      if (!yjsEditor.syncDoc._length) {
-        toSyncDoc(yjsEditor.syncDoc, DEFAULT_VALUE)
-      }
+  const editor = useMemo(() => {
+    const editor = withYjs(
+      withReact(withHistory(createEditor())),
+      sharedType
+    )
+
+    return editor
+  }, [])
+
+  useEffect(() => {
+    provider.on('status', ({ status }) => {
       setEditable(true)
     })
 
-    return yjsEditor
+    // Super hacky way to provide a initial value from the client, if
+    // you plan to use y-websocket in prod you probably should provide the
+    // initial state from the server.
+    provider.on('sync', (isSynced) => {
+      if (isSynced && sharedType.length === 0) {
+        toSharedType(sharedType, [
+          { type: 'paragraph', children: [{ text: '' }] },
+        ])
+      }
+    })
+
+    return () => {
+      provider.disconnect()
+    }
   }, [])
 
   return (
