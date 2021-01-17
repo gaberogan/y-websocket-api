@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "nodemon handler/local",
+    "start": "nodemon -r ./local-env.cjs handler/aws",
     "build": "rimraf build && rollup --config rollup.config.js"
   },
   "exports": {
@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.3.0",
-    "aws-post-to-connection": "^0.1.21",
+    "aws-lambda-ws-server": "^0.1.21",
     "lib0": "^0.2.35",
     "lodash.debounce": "^4.0.8",
     "y-protocols": "^1.0.2",
@@ -27,7 +27,9 @@
     "@babel/core": "^7.12.10",
     "@babel/preset-env": "^7.12.11",
     "@rollup/plugin-commonjs": "^17.0.0",
+    "@rollup/plugin-json": "^4.1.0",
     "@rollup/plugin-node-resolve": "^11.0.1",
+    "dotenv": "^8.2.0",
     "eslint": "^7.17.0",
     "nodemon": "^2.0.6",
     "rimraf": "^3.0.2",
