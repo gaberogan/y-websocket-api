@@ -1,0 +1,16 @@
+{
+  "KeySchema": [
+    {
+      "AttributeName": "PartitionKey",
+      "KeyType": "HASH"
+    }
+  ],
+  "AttributeDefinitions": [
+    {
+      "AttributeName": "PartitionKey",
+      "AttributeType": "S"
+    }
+  ],
+  "BillingMode": "PAY_PER_REQUEST",
+  "TableName": "docs"
+}

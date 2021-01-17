@@ -1,0 +1,7 @@
+{
+  "scripts": {
+    "start": "docker-compose up",
+    "setup": "bash ./setup.sh",
+    "cleanup": "bash ./cleanup.sh"
+  }
+}
