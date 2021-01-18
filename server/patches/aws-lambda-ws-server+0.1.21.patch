@@ -1,5 +1,5 @@
 diff --git a/node_modules/aws-lambda-ws-server/src/handler.js b/node_modules/aws-lambda-ws-server/src/handler.js
-index 77eadab..bcc45a9 100644
+index 77eadab..29c5800 100644
 --- a/node_modules/aws-lambda-ws-server/src/handler.js
 +++ b/node_modules/aws-lambda-ws-server/src/handler.js
 @@ -14,10 +14,12 @@ module.exports = routes => async (event, context) => {
@@ -10,7 +10,7 @@ index 77eadab..bcc45a9 100644
 -      Buffer.from(
 -        event.body || '{}',
 -        event.isBase64Encoded ? 'base64' : undefined
-+    const body = Buffer.isBuffer(event.body) || event.body instanceof ArrayBuffer ? event.body : (
++    const body = event.body instanceof ArrayBuffer ? event.body : (
 +      JSON.parse(
 +        Buffer.from(
 +          event.body || '{}',
@@ -20,7 +20,7 @@ index 77eadab..bcc45a9 100644
      )
      const messageArgs = { ...connectionArgs, message: body }
 diff --git a/node_modules/aws-lambda-ws-server/src/local.js b/node_modules/aws-lambda-ws-server/src/local.js
-index 3d3cf12..564ef17 100644
+index 3d3cf12..c95eb51 100644
 --- a/node_modules/aws-lambda-ws-server/src/local.js
 +++ b/node_modules/aws-lambda-ws-server/src/local.js
 @@ -89,7 +89,7 @@ const context = () => ({
@@ -28,7 +28,7 @@ index 3d3cf12..564ef17 100644
          return reject(err)
        }
 -      ws.send(JSON.stringify(payload), err => {
-+      ws.send(Buffer.isBuffer(payload) || payload instanceof ArrayBuffer ? payload : JSON.stringify(payload), err => {
++      ws.send(payload instanceof Uint8Array ? payload : JSON.stringify(payload), err => {  // NOTE specific to my implementation
          if (err) return reject(err)
          resolve()
        })
@@ -52,7 +52,7 @@ index 3d3cf12..564ef17 100644
 -              connectionId
 -            },
 -            connectionId
-+        if (Buffer.isBuffer(message) || message instanceof ArrayBuffer) {
++        if (message instanceof ArrayBuffer) {
 +          await handler(
 +            event('$default', 'MESSAGE', req, message),
 +            context()

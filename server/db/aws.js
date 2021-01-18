@@ -84,15 +84,9 @@ export async function getOrCreateDoc (docName) {
 
   const ydoc = new Y.Doc()
 
-  console.log('aaaaa')
-
-  debugger
-
   for (let i = 0; i < updates.length; i++) {
     Y.applyUpdate(ydoc, updates[i])
   }
-
-  console.log('bbbbb')
 
   return ydoc
 }
