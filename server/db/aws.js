@@ -26,7 +26,9 @@ export async function getConnectionIds (docName) {
     TableName: process.env.CONNECTIONS_TABLE_NAME,
     KeyConditionExpression: 'PartitionKey = :partitionkeyval',
     ExpressionAttributeValues: {
-      ':partitionkeyval': docName,
+      ':partitionkeyval': {
+        S: docName,
+      },
     },
   }))
   return Items.map(item => item.SortKey.S)
@@ -34,7 +36,7 @@ export async function getConnectionIds (docName) {
 
 export async function removeConnection (docName, connectionId) {
   await ddb.send(new DeleteItemCommand({
-    TableName: process.env.DOCS_TABLE_NAME,
+    TableName: process.env.CONNECTIONS_TABLE_NAME,
     Key: {
       PartitionKey: {
         S: docName,
@@ -51,11 +53,13 @@ export async function getOrCreateDoc (docName) {
     TableName: process.env.DOCS_TABLE_NAME,
     KeyConditionExpression: 'PartitionKey = :partitionkeyval',
     ExpressionAttributeValues: {
-      ':partitionkeyval': docName,
+      ':partitionkeyval': {
+        S: docName,
+      },
     },
   }))
 
-  const dbDoc = Items[0]
+  let dbDoc = Items[0]
 
   // Doc not found, create doc
   if (!dbDoc) {
@@ -66,19 +70,29 @@ export async function getOrCreateDoc (docName) {
           S: docName,
         },
         Updates: {
-          BS: [],
+          L: [],
         },
       },
     }))
+    dbDoc = {
+      Updates: { L: [] }
+    }
   }
 
-  const updates = dbDoc.Updates.BS
+  // @ts-ignore
+  const updates = dbDoc.Updates.L.map(_ => new Uint8Array(Buffer.from(_.B, 'base64')))
 
   const ydoc = new Y.Doc()
+
+  console.log('aaaaa')
+
+  debugger
 
   for (let i = 0; i < updates.length; i++) {
     Y.applyUpdate(ydoc, updates[i])
   }
+
+  console.log('bbbbb')
 
   return ydoc
 }
@@ -94,7 +108,7 @@ export async function updateDoc (docName, update) {
     },
     ExpressionAttributeValues: {
       ':attrValue': {
-        BS: [update],
+        L: [{ B: update }],
       },
     },
   }))

@@ -10,7 +10,7 @@ with WSL2 see fix here https://github.com/docker/compose/issues/7495#issuecommen
 
 ```sh
 cd local-db
-docker-compose up # run local dynamodb server
+npm start # run server
 npm run setup # create tables
 ```
 

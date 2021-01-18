@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "start": "docker-compose up",
+    "start": "docker-compose up --no-recreate",
     "setup": "bash ./setup.sh",
     "cleanup": "bash ./cleanup.sh"
   }

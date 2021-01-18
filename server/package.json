@@ -5,8 +5,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "nodemon -r ./local-env.cjs handler/aws",
-    "build": "rimraf build && rollup --config rollup.config.js"
+    "start": "nodemon --inspect -e js,cjs -r ./local-env.cjs handler/aws",
+    "build": "rimraf build && rollup --config rollup.config.js",
+    "postinstall": "patch-package"
   },
   "exports": {
     "./": "./"
@@ -19,6 +20,7 @@
     "aws-lambda-ws-server": "^0.1.21",
     "lib0": "^0.2.35",
     "lodash.debounce": "^4.0.8",
+    "patch-package": "^6.2.2",
     "y-protocols": "^1.0.2",
     "yjs": "^13.4.9"
   },

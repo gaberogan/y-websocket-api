@@ -119,6 +119,7 @@ class WebsocketDynamoDBStack extends Stack {
       integrationType: 'AWS_PROXY',
       integrationUri: 'arn:aws:apigateway:' + config['region'] + ':lambda:path/2015-03-31/functions/' + messageFunc.functionArn + '/invocations',
       credentialsArn: role.roleArn,
+      contentHandlingStrategy: 'CONVERT_TO_BINARY', // see http://amzn.to/39DkYP4
     })
 
     const messageRoute = new CfnRoute(this, `${name}-message-route`, {
