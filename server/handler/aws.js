@@ -14,7 +14,9 @@ const messageAwareness = 1
 const getDocName = (event) => {
   const qs = event.multiValueQueryStringParameters
 
-  if (!qs.doc) {
+  console.log(event)
+
+  if (!qs || !qs.doc) {
     throw new Error('must specify ?doc=DOC_NAME')
   }
 
@@ -32,10 +34,10 @@ export const handler = ws(
   ws.handler({
     // Connect
     async connect ({ id, event, context, ...other }) {
-      const docName = getDocName(event)
-  
       console.log('connection %s', id)
 
+      const docName = getDocName(event)
+  
       await addConnection(docName, id)
 
       // get doc from db
@@ -48,24 +50,25 @@ export const handler = ws(
       syncProtocol.writeSyncStep1(encoder, doc)
       await send({ context, docName, message: encoding.toUint8Array(encoder), id })
 
-      return { statusCode: 200 }
+      return { statusCode: 200, body: 'Connected.' }
     },
   
     // Disconnect
     async disconnect ({ id, event }) {
+      console.log('disconnect %s', id)
+  
       const docName = getDocName(event)
   
-      console.log('disconnect %s', id)
-
       await removeConnection(docName, id)
 
-      return { statusCode: 200 }
+      return { statusCode: 200, body: 'Disconnected.' }
     },
   
     // Message
     async default ({ message, id, event, context }) {
-      const docName = getDocName(event)
       console.log('message', message, id)
+
+      const docName = getDocName(event)
 
       const connectionIds = await getConnectionIds(docName)
       const otherConnectionIds = connectionIds.filter(_ => _ !== id)
@@ -117,7 +120,7 @@ export const handler = ws(
         }
       }
 
-      return { statusCode: 200 }
+      return { statusCode: 200, body: 'Data sent.' }
     },
   })
 )
