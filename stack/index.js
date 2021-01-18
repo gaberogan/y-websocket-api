@@ -25,10 +25,6 @@ class WebsocketDynamoDBStack extends Stack {
         name: 'PartitionKey',
         type: AttributeType.STRING,
       },
-      // sortKey: { TODO remove
-      //   name: 'SortKey',
-      //   type: AttributeType.STRING,
-      // },
       tableName: 'docs',
       billingMode: BillingMode.PAY_PER_REQUEST,
       removalPolicy: RemovalPolicy.DESTROY, // TODO for prod use RETAIN
@@ -39,7 +35,7 @@ class WebsocketDynamoDBStack extends Stack {
         name: 'PartitionKey',
         type: AttributeType.STRING,
       },
-      sortKey: { // TODO add
+      sortKey: {
         name: 'SortKey',
         type: AttributeType.STRING,
       },
