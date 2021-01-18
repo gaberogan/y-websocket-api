@@ -1,3 +1,4 @@
+import * as Y from 'yjs'
 // @ts-ignore
 import syncProtocol from 'y-protocols/dist/sync.cjs'
 // @ts-ignore
@@ -21,7 +22,7 @@ const getDocName = (event) => {
 }
 
 const send = ({ context, docName, message, id }) => {
-  return context.postToConnection(Buffer.from(message), id)
+  return context.postToConnection(message, id)
     .catch(() => removeConnection(docName, id))
 }
 
@@ -91,12 +92,13 @@ export const handler = ws(
           const messageType = decoding.readVarUint(decoder)
           switch (messageType) {
             case syncProtocol.messageYjsSyncStep1:
-              syncProtocol.readSyncStep1(decoder, encoder, doc)
+              syncProtocol.writeSyncStep2(encoder, doc, decoding.readVarUint8Array(decoder))
               break
             case syncProtocol.messageYjsSyncStep2:
             case syncProtocol.messageYjsUpdate:
-              syncProtocol.readSyncStep2(decoder, doc, null)
-              await updateDoc(docName, message)
+              const update = decoding.readVarUint8Array(decoder)
+              Y.applyUpdate(doc, update)
+              await updateDoc(docName, update)
               await broadcast(message)
               break
             default:
