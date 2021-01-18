@@ -125,6 +125,36 @@ class WebsocketDynamoDBStack extends Stack {
       target: 'integrations/' + messageIntegration.ref,
     })
 
+    const connectIntegration = new CfnIntegration(this, `${name}-connect-route-lambda-integration`, {
+      apiId: api.ref,
+      integrationType: 'AWS_PROXY',
+      integrationUri: 'arn:aws:apigateway:' + config['region'] + ':lambda:path/2015-03-31/functions/' + messageFunc.functionArn + '/invocations',
+      credentialsArn: role.roleArn,
+      contentHandlingStrategy: 'CONVERT_TO_BINARY', // see http://amzn.to/39DkYP4
+    })
+
+    const connectRoute = new CfnRoute(this, `${name}-connect-route`, {
+      apiId: api.ref,
+      routeKey: '$connect',
+      authorizationType: 'NONE',
+      target: 'integrations/' + connectIntegration.ref,
+    })
+
+    const disconnectIntegration = new CfnIntegration(this, `${name}-disconnect-route-lambda-integration`, {
+      apiId: api.ref,
+      integrationType: 'AWS_PROXY',
+      integrationUri: 'arn:aws:apigateway:' + config['region'] + ':lambda:path/2015-03-31/functions/' + messageFunc.functionArn + '/invocations',
+      credentialsArn: role.roleArn,
+      contentHandlingStrategy: 'CONVERT_TO_BINARY', // see http://amzn.to/39DkYP4
+    })
+
+    const disconnectRoute = new CfnRoute(this, `${name}-disconnect-route`, {
+      apiId: api.ref,
+      routeKey: '$disconnect',
+      authorizationType: 'NONE',
+      target: 'integrations/' + disconnectIntegration.ref,
+    })
+
     const deployment = new CfnDeployment(this, `${name}-deployment`, {
       apiId: api.ref,
     })
@@ -138,6 +168,8 @@ class WebsocketDynamoDBStack extends Stack {
 
     const dependencies = new ConcreteDependable()
     dependencies.add(messageRoute)
+    dependencies.add(connectRoute)
+    dependencies.add(disconnectRoute)
     deployment.node.addDependency(dependencies)
   }
 }
