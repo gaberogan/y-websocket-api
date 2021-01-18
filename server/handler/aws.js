@@ -10,14 +10,29 @@ import ws from 'aws-lambda-ws-server'
 const messageSync = 0
 const messageAwareness = 1
 
+const getDocName = (event) => {
+  const qs = event.multiValueQueryStringParameters
+
+  if (!qs.doc) {
+    throw new Error('must specify ?doc=DOC_NAME')
+  }
+
+  return qs.doc[0]
+}
+
+const send = ({ context, docName, message, id }) => {
+  return context.postToConnection(Buffer.from(message), id)
+    .catch(() => removeConnection(docName, id))
+}
+
 // TODO make sure input/output are correct (b64?) format and that it parses
 // to uint8array properly (esp getOrCreateDoc, updateDoc)
-
 export const handler = ws(
   ws.handler({
     // Connect
-    async connect ({ id, event, context }) {
-      const docName = event.queryStringParameters.doc
+    async connect ({ id, event, context, ...other }) {
+      const docName = getDocName(event)
+  
       console.log('connection %s', id)
 
       await addConnection(docName, id)
@@ -30,14 +45,15 @@ export const handler = ws(
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, messageSync)
       syncProtocol.writeSyncStep1(encoder, doc)
-      await context.postToConnection({ message: encoding.toUint8Array(encoder) }, id)
+      await send({ context, docName, message: encoding.toUint8Array(encoder), id })
 
       return { statusCode: 200 }
     },
   
     // Disconnect
     async disconnect ({ id, event }) {
-      const docName = event.queryStringParameters.doc
+      const docName = getDocName(event)
+  
       console.log('disconnect %s', id)
 
       await removeConnection(docName, id)
@@ -47,15 +63,14 @@ export const handler = ws(
   
     // Message
     async default ({ message, id, event, context }) {
-      const docName = event.queryStringParameters.doc
+      const docName = getDocName(event)
       console.log('message', message, id)
 
       const connectionIds = await getConnectionIds(docName)
       const otherConnectionIds = connectionIds.filter(_ => _ !== id)
-      const broadcast = ({ message }) => {
+      const broadcast = (message) => {
         return Promise.all(otherConnectionIds.map(id => {
-          return context.postToConnection({ message }, id)
-            .catch(() => removeConnection(docName, id))
+          return send({ context, docName, message, id }) 
         }))
       }
 
@@ -82,7 +97,7 @@ export const handler = ws(
             case syncProtocol.messageYjsUpdate:
               syncProtocol.readSyncStep2(decoder, doc, null)
               await updateDoc(docName, message)
-              await broadcast({ message })
+              await broadcast(message)
               break
             default:
               throw new Error('Unknown message type')
@@ -90,12 +105,12 @@ export const handler = ws(
 
           // Reply with our state
           if (encoding.length(encoder) > 1) {
-            await context.postToConnection({ message: encoding.toUint8Array(encoder) }, id)
+            await send({ context, docName, message: encoding.toUint8Array(encoder), id })
           }
 
           break
         case messageAwareness: {
-          await broadcast({ message })
+          await broadcast(message)
           break
         }
       }
