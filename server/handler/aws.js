@@ -22,7 +22,7 @@ const getDocName = (event) => {
   return qs.doc[0]
 }
 
-const send = ({ context, docName, message, id }) => {
+const send = ({ context, message, id }) => {
   return context.postToConnection(toBase64(message), id)
     .catch((err) => {
       console.error(`Error during postToConnection: ${err}`)
@@ -33,8 +33,8 @@ const send = ({ context, docName, message, id }) => {
 export const handler = ws(
   ws.handler({
     // Connect
-    async connect ({ id, event, context, ...other }) {
-      console.log(['connect', id])
+    async connect ({ id, event, context }) {
+      console.log(['connect', id, event])
 
       const docName = getDocName(event)
   
@@ -48,7 +48,7 @@ export const handler = ws(
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, messageSync)
       syncProtocol.writeSyncStep1(encoder, doc)
-      await send({ context, docName, message: encoding.toUint8Array(encoder), id })
+      await send({ context, message: encoding.toUint8Array(encoder), id })
 
       console.log('done connect')
       return { statusCode: 200, body: 'Connected.' }
@@ -56,7 +56,7 @@ export const handler = ws(
   
     // Disconnect
     async disconnect ({ id, event }) {
-      console.log(['disconnect', id])
+      console.log(['disconnect', id, event])
     
       await removeConnection(id)
 
@@ -65,7 +65,7 @@ export const handler = ws(
   
     // Message
     async default ({ message, id, event, context }) {
-      console.log(['message', id, message])
+      console.log(['message', id, message, event])
 
       message = fromBase64(message)
 
@@ -74,7 +74,7 @@ export const handler = ws(
       const otherConnectionIds = connectionIds.filter(_ => _ !== id)
       const broadcast = (message) => {
         return Promise.all(otherConnectionIds.map(id => {
-          return send({ context, docName, message, id }) 
+          return send({ context, message, id }) 
         }))
       }
 
@@ -109,7 +109,7 @@ export const handler = ws(
 
           // Reply with our state
           if (encoding.length(encoder) > 1) {
-            await send({ context, docName, message: encoding.toUint8Array(encoder), id })
+            await send({ context, message: encoding.toUint8Array(encoder), id })
           }
 
           break

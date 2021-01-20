@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "nodemon --inspect -e js,cjs -r ./local-env.cjs handler/aws",
+    "start": "nodemon -e js,cjs -r ./local-env.cjs handler/aws",
     "build": "rimraf build && rollup --config rollup.config.js",
     "postinstall": "patch-package"
   },
