@@ -7,6 +7,7 @@ import encoding from 'lib0/dist/encoding.cjs'
 import decoding from 'lib0/dist/decoding.cjs'
 import { addConnection, getConnectionIds, removeConnection, getOrCreateDoc, updateDoc } from '../db/aws.js'
 import ws from 'aws-lambda-ws-server'
+import { toBase64, fromBase64 } from 'lib0/buffer.js'
 
 const messageSync = 0
 const messageAwareness = 1
@@ -24,7 +25,7 @@ const getDocName = (event) => {
 }
 
 const send = ({ context, docName, message, id }) => {
-  return context.postToConnection(message, id)
+  return context.postToConnection(toBase64(message), id)
     .catch(() => removeConnection(docName, id))
 }
 
@@ -68,6 +69,8 @@ export const handler = ws(
     async default ({ message, id, event, context }) {
       console.log('message', message, id)
 
+      message = fromBase64(message)
+
       const docName = getDocName(event)
 
       const connectionIds = await getConnectionIds(docName)
@@ -78,7 +81,6 @@ export const handler = ws(
         }))
       }
 
-      message = new Uint8Array(message)
       const doc = await getOrCreateDoc(docName)
 
       const encoder = encoding.createEncoder()

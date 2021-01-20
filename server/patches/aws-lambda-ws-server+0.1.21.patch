@@ -1,8 +1,8 @@
 diff --git a/node_modules/aws-lambda-ws-server/src/handler.js b/node_modules/aws-lambda-ws-server/src/handler.js
-index 77eadab..29c5800 100644
+index 77eadab..0cfd7a2 100644
 --- a/node_modules/aws-lambda-ws-server/src/handler.js
 +++ b/node_modules/aws-lambda-ws-server/src/handler.js
-@@ -14,10 +14,12 @@ module.exports = routes => async (event, context) => {
+@@ -14,12 +14,7 @@ module.exports = routes => async (event, context) => {
    } else if (eventType === 'DISCONNECT' && routes.disconnect) {
      return routes.disconnect(connectionArgs)
    } else if (eventType === 'MESSAGE') {
@@ -10,17 +10,14 @@ index 77eadab..29c5800 100644
 -      Buffer.from(
 -        event.body || '{}',
 -        event.isBase64Encoded ? 'base64' : undefined
-+    const body = event.body instanceof ArrayBuffer ? event.body : (
-+      JSON.parse(
-+        Buffer.from(
-+          event.body || '{}',
-+          event.isBase64Encoded ? 'base64' : undefined
-+        )
-       )
-     )
+-      )
+-    )
++    const body = event.body
      const messageArgs = { ...connectionArgs, message: body }
+     if (routes[routeKey]) {
+       return routes[routeKey](messageArgs)
 diff --git a/node_modules/aws-lambda-ws-server/src/local.js b/node_modules/aws-lambda-ws-server/src/local.js
-index 3d3cf12..c95eb51 100644
+index 3d3cf12..f4c58ec 100644
 --- a/node_modules/aws-lambda-ws-server/src/local.js
 +++ b/node_modules/aws-lambda-ws-server/src/local.js
 @@ -89,7 +89,7 @@ const context = () => ({
@@ -28,49 +25,16 @@ index 3d3cf12..c95eb51 100644
          return reject(err)
        }
 -      ws.send(JSON.stringify(payload), err => {
-+      ws.send(payload instanceof Uint8Array ? payload : JSON.stringify(payload), err => {  // NOTE specific to my implementation
++      ws.send(payload, err => {
          if (err) return reject(err)
          resolve()
        })
-@@ -113,6 +113,7 @@ module.exports = handler => {
-   wss.on('connection', (ws, req) => {
-     const connectionId = req.headers['sec-websocket-key']
-     clients[connectionId] = ws
-+    ws.binaryType = 'arraybuffer' // NOTE this should probably be a config variable instead
-     ws.on('close', async () => {
-       try {
-         delete clients[connectionId]
-@@ -129,17 +130,24 @@ module.exports = handler => {
-           context()
-         )
-       } catch (e) {
--        console.error(e)
--        try {
--          await context().postToConnection(
--            {
--              message: 'Internal server error',
--              connectionId
--            },
--            connectionId
-+        if (message instanceof ArrayBuffer) {
-+          await handler(
-+            event('$default', 'MESSAGE', req, message),
-+            context()
-           )
--        } catch (e) {
-+        } else {
-           console.error(e)
-+          try {
-+            await context().postToConnection(
-+              {
-+                message: 'Internal server error',
-+                connectionId
-+              },
-+              connectionId
-+            )
-+          } catch (e) {
-+            console.error(e)
-+          }
-         }
-       }
+@@ -123,7 +123,7 @@ module.exports = handler => {
      })
+     ws.on('message', async message => {
+       try {
+-        const body = JSON.parse(message || '{}')
++        const body = message
+         await handler(
+           event(body[mappingKey] || '$default', 'MESSAGE', req, message),
+           context()
