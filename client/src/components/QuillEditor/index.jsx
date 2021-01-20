@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import * as Y from 'yjs'
-import { WebsocketProvider } from 'y-websocket'
+import { WebsocketProvider } from '../../services/y-websocket'
 import { QuillBinding } from 'y-quill'
 import Quill from 'quill'
 import QuillCursors from 'quill-cursors'
