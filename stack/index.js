@@ -21,7 +21,7 @@ class WebsocketDynamoDBStack extends Stack {
     // Create tables
 
     const docsTable = new Table(this, `${name}-docs-table`, {
-      partitionKey: {
+      partitionKey: { // docName
         name: 'PartitionKey',
         type: AttributeType.STRING,
       },
@@ -31,17 +31,21 @@ class WebsocketDynamoDBStack extends Stack {
     })
 
     const connectionsTable = new Table(this, `${name}-connections-table`, {
-      partitionKey: {
+      partitionKey: { // connectionId
         name: 'PartitionKey',
-        type: AttributeType.STRING,
-      },
-      sortKey: {
-        name: 'SortKey',
         type: AttributeType.STRING,
       },
       tableName: 'connections',
       billingMode: BillingMode.PAY_PER_REQUEST,
       removalPolicy: RemovalPolicy.DESTROY, // TODO for prod use RETAIN
+    })
+
+    connectionsTable.addGlobalSecondaryIndex({
+      indexName: 'DocNameIndex',
+      partitionKey: { // docName
+        name: 'DocName',
+        type: AttributeType.STRING,
+      },
     })
 
     // Initialize lambda

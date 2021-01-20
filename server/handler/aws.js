@@ -5,7 +5,7 @@ import syncProtocol from 'y-protocols/dist/sync.cjs'
 import encoding from 'lib0/dist/encoding.cjs'
 // @ts-ignore
 import decoding from 'lib0/dist/decoding.cjs'
-import { addConnection, getConnectionIds, removeConnection, getOrCreateDoc, updateDoc } from '../db/aws.js'
+import { addConnection, getConnection, getConnectionIds, removeConnection, getOrCreateDoc, updateDoc } from '../db/aws.js'
 import ws from 'aws-lambda-ws-server'
 import { toBase64, fromBase64 } from 'lib0/buffer.js'
 
@@ -14,8 +14,6 @@ const messageAwareness = 1
 
 const getDocName = (event) => {
   const qs = event.multiValueQueryStringParameters
-
-  console.log(event)
 
   if (!qs || !qs.doc) {
     throw new Error('must specify ?doc=DOC_NAME')
@@ -26,20 +24,21 @@ const getDocName = (event) => {
 
 const send = ({ context, docName, message, id }) => {
   return context.postToConnection(toBase64(message), id)
-    .catch(() => removeConnection(docName, id))
+    .catch((err) => {
+      console.error(`Error during postToConnection: ${err}`)
+      return removeConnection(id)
+    })
 }
 
-// TODO make sure input/output are correct (b64?) format and that it parses
-// to uint8array properly (esp getOrCreateDoc, updateDoc)
 export const handler = ws(
   ws.handler({
     // Connect
     async connect ({ id, event, context, ...other }) {
-      console.log('connection %s', id)
+      console.log(['connect', id])
 
       const docName = getDocName(event)
   
-      await addConnection(docName, id)
+      await addConnection(id, docName)
 
       // get doc from db
       // create new doc with no updates if no doc exists
@@ -51,28 +50,26 @@ export const handler = ws(
       syncProtocol.writeSyncStep1(encoder, doc)
       await send({ context, docName, message: encoding.toUint8Array(encoder), id })
 
+      console.log('done connect')
       return { statusCode: 200, body: 'Connected.' }
     },
   
     // Disconnect
     async disconnect ({ id, event }) {
-      console.log('disconnect %s', id)
-  
-      const docName = getDocName(event)
-  
-      await removeConnection(docName, id)
+      console.log(['disconnect', id])
+    
+      await removeConnection(id)
 
       return { statusCode: 200, body: 'Disconnected.' }
     },
   
     // Message
     async default ({ message, id, event, context }) {
-      console.log('message', message, id)
+      console.log(['message', id, message])
 
       message = fromBase64(message)
 
-      const docName = getDocName(event)
-
+      const docName = (await getConnection(id)).DocName.S
       const connectionIds = await getConnectionIds(docName)
       const otherConnectionIds = connectionIds.filter(_ => _ !== id)
       const broadcast = (message) => {

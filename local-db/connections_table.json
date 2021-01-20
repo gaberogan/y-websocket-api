@@ -3,10 +3,6 @@
     {
       "AttributeName": "PartitionKey",
       "KeyType": "HASH"
-    },
-    {
-      "AttributeName": "SortKey",
-      "KeyType": "RANGE"
     }
   ],
   "AttributeDefinitions": [
@@ -15,10 +11,24 @@
       "AttributeType": "S"
     },
     {
-      "AttributeName": "SortKey",
+      "AttributeName": "DocName",
       "AttributeType": "S"
     }
   ],
   "BillingMode": "PAY_PER_REQUEST",
+  "GlobalSecondaryIndexes": [
+    {
+      "IndexName": "DocNameIndex",
+      "KeySchema": [
+        {
+          "AttributeName": "DocName",
+          "KeyType": "HASH"
+        }
+      ],
+      "Projection": {
+        "ProjectionType": "ALL"
+      }
+    }
+  ],
   "TableName": "connections"
 }

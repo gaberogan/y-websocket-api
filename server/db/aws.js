@@ -7,42 +7,61 @@ const ddb = new DynamoDBClient({
   endpoint: process.env.DYNAMODB_ENDPOINT,
 })
 
-export async function addConnection (docName, connectionId) {
+export async function addConnection (id, docName) {
   await ddb.send(new PutItemCommand({
     TableName: process.env.CONNECTIONS_TABLE_NAME,
     Item: {
       PartitionKey: {
-        S: docName,
+        S: id,
       },
-      SortKey: {
-        S: connectionId,
+      DocName: {
+        S: docName,
       },
     },
   }))
 }
 
-export async function getConnectionIds (docName) {
+export async function getConnection (id) {
   const { Items } = await ddb.send(new QueryCommand({
     TableName: process.env.CONNECTIONS_TABLE_NAME,
     KeyConditionExpression: 'PartitionKey = :partitionkeyval',
     ExpressionAttributeValues: {
       ':partitionkeyval': {
+        S: id,
+      },
+    },
+  }))
+
+  const connection = Items[0]
+
+  if (!connection) {
+    await removeConnection(id)
+    throw new Error(`Connection not found: ${id}`)
+  }
+
+  return connection
+}
+
+export async function getConnectionIds (docName) {
+  const { Items } = await ddb.send(new QueryCommand({
+    TableName: process.env.CONNECTIONS_TABLE_NAME,
+    IndexName: 'DocNameIndex',
+    KeyConditionExpression: 'DocName = :docnameval',
+    ExpressionAttributeValues: {
+      ':docnameval': {
         S: docName,
       },
     },
   }))
-  return Items.map(item => item.SortKey.S)
+  return Items.map(item => item.PartitionKey.S)
 }
 
-export async function removeConnection (docName, connectionId) {
+export async function removeConnection (id) {
   await ddb.send(new DeleteItemCommand({
     TableName: process.env.CONNECTIONS_TABLE_NAME,
     Key: {
       PartitionKey: {
-        S: docName,
-      },
-      SortKey: {
-        S: connectionId,
+        S: id,
       },
     },
   }))
