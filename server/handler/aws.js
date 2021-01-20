@@ -48,7 +48,9 @@ export const handler = ws(
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, messageSync)
       syncProtocol.writeSyncStep1(encoder, doc)
-      await send({ context, message: encoding.toUint8Array(encoder), id })
+
+      // TODO cannot send message during connection!!!!!
+      // await send({ context, message: encoding.toUint8Array(encoder), id })
 
       console.log('done connect')
       return { statusCode: 200, body: 'Connected.' }
