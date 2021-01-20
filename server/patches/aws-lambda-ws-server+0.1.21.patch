@@ -17,20 +17,10 @@ index 77eadab..0cfd7a2 100644
      if (routes[routeKey]) {
        return routes[routeKey](messageArgs)
 diff --git a/node_modules/aws-lambda-ws-server/src/local.js b/node_modules/aws-lambda-ws-server/src/local.js
-index 3d3cf12..7fbe446 100644
+index 3d3cf12..f4c58ec 100644
 --- a/node_modules/aws-lambda-ws-server/src/local.js
 +++ b/node_modules/aws-lambda-ws-server/src/local.js
-@@ -37,9 +37,6 @@ const server = http
- 
- const wss = new WebSocket.Server({
-   server,
--  verifyClient (info, fn) {
--    wss.emit('verifyClient', info, fn)
--  }
- })
- 
- const clients = {}
-@@ -89,7 +86,7 @@ const context = () => ({
+@@ -89,7 +89,7 @@ const context = () => ({
          err.statusCode = 410
          return reject(err)
        }
@@ -39,47 +29,7 @@ index 3d3cf12..7fbe446 100644
          if (err) return reject(err)
          resolve()
        })
-@@ -98,21 +95,28 @@ const context = () => ({
- })
- 
- module.exports = handler => {
--  wss.removeAllListeners('verifyClient')
--  wss.on('verifyClient', async (info, fn) => {
--    const req = info.req
-+  wss.removeAllListeners('connection')
-+  wss.on('connection', async (ws, req) => {
-+    const connectionId = req.headers['sec-websocket-key']
-+    clients[connectionId] = ws
-+
-     try {
--      const result = await handler(event('$connect', 'CONNECT', req), context())
--      fn(result && result.statusCode === 200, result.statusCode)
-+      await handler(event('$connect', 'CONNECT', req), context())
-     } catch (e) {
-       console.error(e)
--      fn(false, e.statusCode)
-+      try {
-+        await context().postToConnection(
-+          {
-+            message: 'Internal server error',
-+            connectionId
-+          },
-+          connectionId
-+        )
-+      } catch (e) {
-+        console.error(e)
-+      }
-     }
--  })
--  wss.removeAllListeners('connection')
--  wss.on('connection', (ws, req) => {
--    const connectionId = req.headers['sec-websocket-key']
--    clients[connectionId] = ws
-+
-     ws.on('close', async () => {
-       try {
-         delete clients[connectionId]
-@@ -123,7 +127,7 @@ module.exports = handler => {
+@@ -123,7 +123,7 @@ module.exports = handler => {
      })
      ws.on('message', async message => {
        try {
