@@ -5,3 +5,4 @@ node_modules
 dbDir
 cdk.out
 .cdk.staging
+.snowpack

@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
 import { css } from '@emotion/css'
-// import QuillEditor from './components/QuillEditor'
+import QuillEditor from './components/QuillEditor'
 import SlateEditor from './components/SlateEditor'
 
 const pageStyle = css`
@@ -13,8 +13,8 @@ const App = () => (
     <div className={pageStyle}>
       <h1>Slate</h1>
       <SlateEditor />
-      {/* <h1>Quill</h1>
-      <QuillEditor /> */}
+      <h1>Quill</h1>
+      <QuillEditor />
     </div>
   </React.Fragment>
 )

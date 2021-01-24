@@ -14,6 +14,7 @@ import { withYjs, toSharedType } from 'slate-yjs'
 import { WebsocketProvider } from '../../services/y-websocket'
 import { cx, css } from '@emotion/css'
 import { Button, Icon, Toolbar } from './components'
+import { YJS_ENDPOINT } from '../../services/state.js'
 
 const HOTKEYS = {
   'mod+b': 'bold',
@@ -33,8 +34,7 @@ const SlateEditor = () => {
   const [sharedType, provider] = useMemo(() => {
     const doc = new Y.Doc()
     const sharedType = doc.getArray('content')
-    const provider = new WebsocketProvider('wss://0z6zro78zi.execute-api.us-east-1.amazonaws.com/dev', '?doc=my-slate-doc', doc)
-    // const provider = new WebsocketProvider('ws://localhost:9000', '?doc=my-slate-doc', doc)
+    const provider = new WebsocketProvider(YJS_ENDPOINT, '?doc=my-slate-doc', doc)
     return [sharedType, provider]
   }, [])
 
