@@ -5,6 +5,7 @@ import { QuillBinding } from 'y-quill'
 import Quill from 'quill'
 import QuillCursors from 'quill-cursors'
 import 'quill/dist/quill.snow.css'
+import { YJS_ENDPOINT } from '../../services/state.js'
 
 const QuillEditor = () => {
 
@@ -12,7 +13,7 @@ const QuillEditor = () => {
     Quill.register('modules/cursors', QuillCursors)
 
     const ydoc = new Y.Doc()
-    const provider = new WebsocketProvider('ws://localhost:9000', '?doc=my-quill-doc', ydoc)
+    const provider = new WebsocketProvider(YJS_ENDPOINT, '?doc=my-quill-doc', ydoc)
     const type = ydoc.getText('quill')
 
     const editor = new Quill('#editor-container', {

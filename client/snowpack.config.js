@@ -1,27 +1,5 @@
-/** @type {import("snowpack").SnowpackUserConfig } */
 module.exports = {
-  mount: {
-    /* ... */
+  packageOptions: {
+    // source: 'remote', // TODO y-protocols fails :( submit PR?
   },
-  plugins: [
-    /* ... */
-  ],
-  install: [
-    /* ... */
-  ],
-  installOptions: {
-    /* ... */
-  },
-  devOptions: {
-    /* ... */
-  },
-  buildOptions: {
-    /* ... */
-  },
-  proxy: {
-    /* ... */
-  },
-  alias: {
-    /* ... */
-  },
-};
+}
