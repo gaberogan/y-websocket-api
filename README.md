@@ -1,3 +1,5 @@
+WORK IN PROGRESS
+
 ## YJS for AWS Websocket API
 This is a demo of YJS working with AWS Websocket API and DynamoDB. The intent is for this to become a library where you can run a few CLI commands and launch a fully scalable YJS infrastructure on AWS.
 
