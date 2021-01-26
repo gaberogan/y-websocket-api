@@ -34,7 +34,7 @@ const SlateEditor = () => {
   const [sharedType, provider] = useMemo(() => {
     const doc = new Y.Doc()
     const sharedType = doc.getArray('content')
-    const provider = new WebsocketProvider(YJS_ENDPOINT, '?doc=my-slate-doc', doc)
+    const provider = new WebsocketProvider(YJS_ENDPOINT, '?doc=my-slate-doc2', doc)
     return [sharedType, provider]
   }, [])
 
