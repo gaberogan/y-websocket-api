@@ -32,3 +32,4 @@ make sure you've configured your aws cli. if you have multiple accounts, add --p
 
 can't handle json error from websocket
 new connections keep getting created for some reason
+max document size 400KB (planning to fix)
