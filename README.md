@@ -1,6 +1,4 @@
-WORK IN PROGRESS
-
-## YJS for AWS Websocket API
+## YJS for AWS Websocket API Demo
 This is a demo of YJS working with AWS Websocket API and DynamoDB. The intent is for this to become a library where you can run a few CLI commands and launch a fully scalable YJS infrastructure on AWS.
 
 ## Getting Started
@@ -28,8 +26,9 @@ use node >= v 14.15.4
 make sure aws cli is correct region in stack/config.json and local-env.cjs
 replace account id with yours in stack/config.json
 make sure client/services/state.js has the endpoint you want
+make sure you've configured your aws cli. if you have multiple accounts, add --profile MYPROFILE to deploy command in stack
 
-## Bugs
+## Known Issues
 
 can't handle json error from websocket
 new connections keep getting created for some reason
