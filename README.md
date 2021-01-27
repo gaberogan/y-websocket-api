@@ -21,3 +21,15 @@ Debug
 aws dynamodb list-tables --endpoint-url http://localhost:8000
 aws dynamodb scan --table-name docs --endpoint-url http://localhost:8000
 ```
+
+## Troubleshooting
+
+use node >= v 14.15.4
+make sure aws cli is correct region in stack/config.json and local-env.cjs
+replace account id with yours in stack/config.json
+make sure client/services/state.js has the endpoint you want
+
+## Bugs
+
+can't handle json error from websocket
+new connections keep getting created for some reason
