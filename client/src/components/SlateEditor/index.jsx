@@ -11,10 +11,12 @@ import {
 import { withHistory } from 'slate-history'
 import * as Y from 'yjs'
 import { withYjs, toSharedType } from 'slate-yjs'
+import randomColor from 'randomcolor'
 import { WebsocketProvider } from '../../services/y-websocket'
 import { cx, css } from '@emotion/css'
 import { Button, Icon, Toolbar } from './components'
 import { YJS_ENDPOINT } from '../../services/state.js'
+import useCursor from '../../services/useCursor.js'
 
 const HOTKEYS = {
   'mod+b': 'bold',
@@ -27,14 +29,12 @@ const LIST_TYPES = ['numbered-list', 'bulleted-list']
 
 const SlateEditor = () => {
   const [value, setValue] = useState([])
-  const renderElement = useCallback(props => <Element {...props} />, [])
-  const renderLeaf = useCallback(props => <Leaf {...props} />, [])
   const [editable, setEditable] = useState(false)
 
   const [sharedType, provider] = useMemo(() => {
     const doc = new Y.Doc()
     const sharedType = doc.getArray('content')
-    const provider = new WebsocketProvider(YJS_ENDPOINT, '?doc=my-slate-doc2', doc)
+    const provider = new WebsocketProvider(YJS_ENDPOINT, '?doc=my-slate-doc429', doc)
     return [sharedType, provider]
   }, [])
 
@@ -46,6 +46,27 @@ const SlateEditor = () => {
 
     return editor
   }, [])
+
+  const color = useMemo(
+    () =>
+      randomColor({
+        luminosity: 'dark',
+        format: 'rgba',
+        alpha: 1
+      }),
+    []
+  )
+
+  const cursorOptions = {
+    name: `User ${Math.round(Math.random() * 1000)}`,
+    color,
+    alphaColor: color.slice(0, -2) + '0.2)'
+  }
+
+  const { decorate } = useCursor(editor, provider.awareness, cursorOptions)
+
+  const renderElement = useCallback(props => <Element {...props} />, [])
+  const renderLeaf = useCallback((props) => <Leaf {...props} />, [decorate])
 
   useEffect(() => {
     provider.on('status', ({ status }) => {
@@ -89,6 +110,7 @@ const SlateEditor = () => {
           <Editable
             renderElement={renderElement}
             renderLeaf={renderLeaf}
+            decorate={decorate}
             placeholder="Enter some rich text…"
             spellCheck
             // autoFocus // NOTE this breaks it!
@@ -190,7 +212,20 @@ const Leaf = ({ attributes, children, leaf }) => {
     children = <u>{children}</u>
   }
 
-  return <span {...attributes}>{children}</span>
+  return (
+    <span
+      {...attributes}
+      style={
+        {
+          position: 'relative',
+          backgroundColor: leaf.alphaColor
+        }
+      }
+    >
+      {leaf.isCaret ? <Caret {...leaf} /> : null}
+      {children}
+    </span>
+  )
 }
 
 const BlockButton = ({ format, icon }) => {
@@ -244,5 +279,54 @@ const ExampleContent = props => (
     `}
   />
 )
+
+// Cursor Caret
+const Caret = ({ color, isForward, name }) => {
+  const cursorStyles = {
+    ...cursorStyleBase,
+    background: color,
+    left: isForward ? '100%' : '0%'
+  }
+  const caretStyles = {
+    ...caretStyleBase,
+    background: color,
+    left: isForward ? '100%' : '0%'
+  }
+
+  caretStyles[isForward ? 'bottom' : 'top'] = 0
+
+  return (
+    <>
+      <span contentEditable={false} style={caretStyles}>
+        <span style={{ position: 'relative' }}>
+          <span contentEditable={false} style={cursorStyles}>
+            {name}
+          </span>
+        </span>
+      </span>
+    </>
+  )
+}
+
+const cursorStyleBase = {
+  position: 'absolute',
+  top: -2,
+  pointerEvents: 'none',
+  userSelect: 'none',
+  transform: 'translateY(-100%)',
+  fontSize: 10,
+  color: 'white',
+  background: 'palevioletred',
+  whiteSpace: 'nowrap'
+}
+
+const caretStyleBase = {
+  position: 'absolute',
+  pointerEvents: 'none',
+  userSelect: 'none',
+  height: '1.2em',
+  width: 2,
+  background: 'palevioletred'
+}
 
 export default SlateEditor
