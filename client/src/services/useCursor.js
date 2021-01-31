@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Text, Range, Path } from 'slate'
 
 // Apply slate cursor to YJS
@@ -7,14 +7,9 @@ export const applySlateCursor = (editor, awareness, cursorOptions) => {
   const localCursor = awareness.getLocalState().cursor
 
   if (selection) {
-    const operations = editor.operations
-    const cursorOps = operations.filter((op) => op.type === 'set_selection')
-    const newCursor = cursorOps[cursorOps.length - 1]?.newProperties || {} // TODO not sure if we care about newProperties
-
-    const newCursorData = Object.assign(
+    const updatedCursor = Object.assign(
       {},
       localCursor,
-      newCursor,
       selection,
       cursorOptions,
       {
@@ -22,16 +17,18 @@ export const applySlateCursor = (editor, awareness, cursorOptions) => {
       }
     )
 
-    if (JSON.stringify(newCursorData) !== JSON.stringify(localCursor)) {
-      awareness.setLocalStateField('cursor', newCursorData)
+    // Broadcast cursor
+    if (JSON.stringify(updatedCursor) !== JSON.stringify(localCursor)) {
+      awareness.setLocalStateField('cursor', updatedCursor)
     }
   } else {
+    // Broadcast remove cursor
     awareness.setLocalStateField('cursor', null)
   }
 }
 
 const useCursor = (editor, awareness, cursorOptions) => {
-  const [cursorData, setCursorData] = useState([])
+  const [cursors, setCursors] = useState([])
 
   useEffect(() => {
     const oldOnChange = editor.onChange
@@ -46,19 +43,20 @@ const useCursor = (editor, awareness, cursorOptions) => {
       }
     }
   
-    awareness.on('change', ({ added, updated, removed }) => {
-      const localCursor = awareness.getLocalState().cursor
-      setCursorData(
+    awareness.on('change', () => {
+      const localState = awareness.getLocalState()
+      if (!localState) return // page is closing
+      // Pull cursors from awareness
+      setCursors(
         [...awareness.getStates().values()]
+          .filter(_ => _ !== localState)
           .map(_ => _.cursor)
-          .filter(cursor => cursor && cursor !== localCursor)
+          .filter(_ => _)
       )
     })
   }, [])
 
-  // TODO this isn't necessary?
-  const cursors = useMemo(() => cursorData, [cursorData])
-
+  // Supply decorations to slate leaves
   const decorate = useCallback(
     ([node, path]) => {
       const ranges = []
