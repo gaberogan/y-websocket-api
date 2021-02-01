@@ -8,6 +8,7 @@ const ddb = new DynamoDBClient({
 })
 
 export async function addConnection (id, docName) {
+  console.log("MICHAL: Adding the connection", id, docName);
   await ddb.send(new PutItemCommand({
     TableName: process.env.CONNECTIONS_TABLE_NAME,
     Item: {
@@ -57,6 +58,7 @@ export async function getConnectionIds (docName) {
 }
 
 export async function removeConnection (id) {
+  console.log("MICHAL: 'Tried to remove connection from the table'", id);
   await ddb.send(new DeleteItemCommand({
     TableName: process.env.CONNECTIONS_TABLE_NAME,
     Key: {

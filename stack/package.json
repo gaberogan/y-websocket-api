@@ -4,7 +4,7 @@
   "description": "Use of an Application Load Balancer with an AutoScaling Group",
   "private": true,
   "scripts": {
-    "deploy": "npm run build --prefix ../server && cdk deploy"
+    "deploy": "npm run build --prefix ../server && cdk --profile xolvio deploy"
   },
   "author": {
     "name": "Amazon Web Services",

@@ -14,7 +14,7 @@ const App = () => (
       <h1>Slate</h1>
       <SlateEditor />
       <h1>Quill</h1>
-      <QuillEditor />
+      {/*<QuillEditor />*/}
     </div>
   </React.Fragment>
 )

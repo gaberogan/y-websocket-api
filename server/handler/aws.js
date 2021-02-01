@@ -23,9 +23,11 @@ const getDocName = (event) => {
 }
 
 const send = ({ context, message, id }) => {
+  console.log("MICHAL: JSON.stringify(context)", JSON.stringify(context));
+  console.log("MICHAL: message", message);
   return context.postToConnection(toBase64(message), id)
     .catch((err) => {
-      console.error(`Error during postToConnection: ${err}`)
+      console.error(`Error during postToConnection: ${err}`, id)
       return removeConnection(id)
     })
 }
@@ -37,7 +39,7 @@ export const handler = ws(
       console.log(['connect', id, event])
 
       const docName = getDocName(event)
-  
+
       await addConnection(id, docName)
 
       // get doc from db
@@ -55,16 +57,16 @@ export const handler = ws(
       console.log('done connect')
       return { statusCode: 200, body: 'Connected.' }
     },
-  
+
     // Disconnect
     async disconnect ({ id, event }) {
       console.log(['disconnect', id, event])
-    
+
       await removeConnection(id)
 
       return { statusCode: 200, body: 'Disconnected.' }
     },
-  
+
     // Message
     async default ({ message, id, event, context }) {
       console.log(['message', id, message, event])
@@ -76,7 +78,7 @@ export const handler = ws(
       const otherConnectionIds = connectionIds.filter(_ => _ !== id)
       const broadcast = (message) => {
         return Promise.all(otherConnectionIds.map(id => {
-          return send({ context, message, id }) 
+          return send({ context, message, id })
         }))
       }
 
@@ -85,7 +87,7 @@ export const handler = ws(
       const encoder = encoding.createEncoder()
       const decoder = decoding.createDecoder(message)
       const messageType = decoding.readVarUint(decoder)
-  
+
       switch (messageType) {
         // Case sync1: Read SyncStep1 message and reply with SyncStep2 (send doc to client wrt state vector input)
         // Case sync2 or yjsUpdate: Read and apply Structs and then DeleteStore to a y instance (append to db, send to all clients)
