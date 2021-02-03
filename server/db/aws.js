@@ -67,13 +67,26 @@ export async function removeConnection (id) {
   }))
 }
 
+const splitCharacter = '___'
+
 export async function getOrCreateDoc (docName) {
+  let loadUntilOperation = false
+  let docNameToUse = docName
+  let loadUntilOperationNo = 0
+  if (docName.includes(splitCharacter)) {
+    loadUntilOperation = true
+    const [docNameId, operationNo] = docName.split(splitCharacter)
+    docNameToUse = docNameId
+    loadUntilOperationNo = operationNo
+  }
+
+
   const { Items } = await ddb.send(new QueryCommand({
     TableName: process.env.DOCS_TABLE_NAME,
     KeyConditionExpression: 'PartitionKey = :partitionkeyval',
     ExpressionAttributeValues: {
       ':partitionkeyval': {
-        S: docName,
+        S: docNameToUse,
       },
     },
   }))
@@ -86,7 +99,7 @@ export async function getOrCreateDoc (docName) {
       TableName: process.env.DOCS_TABLE_NAME,
       Item: {
         PartitionKey: {
-          S: docName,
+          S: docNameToUse,
         },
         Updates: {
           L: [],
@@ -103,9 +116,12 @@ export async function getOrCreateDoc (docName) {
 
   const ydoc = new Y.Doc()
 
-  console.log("MICHAL: updates.length", updates.length);
+  console.log('MICHAL: updates.length', updates.length)
+  let loadUntil = loadUntilOperation ? loadUntilOperationNo : updates.length
+  loadUntil = loadUntil > updates.length ? updates.length : loadUntil
+  console.log('PINGWING: 121 loadUntil', loadUntil)
 
-  for (let i = 0; i < updates.length; i++) {
+  for (let i = 0; i < loadUntil; i++) {
     Y.applyUpdate(ydoc, updates[i])
   }
 
