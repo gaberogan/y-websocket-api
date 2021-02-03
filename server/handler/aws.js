@@ -23,7 +23,6 @@ const getDocName = (event) => {
 }
 
 const send = ({ context, message, id }) => {
-  console.log("MICHAL: message", message);
   console.log("MICHAL: toBase64(message)", toBase64(message));
   return context.postToConnection(toBase64(message), id)
     .catch((err) => {
@@ -49,7 +48,6 @@ export const handler = ws(
       // writeSyncStep1 (send sv)
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, messageSync)
-      console.log("MICHAL: doc", doc);
       syncProtocol.writeSyncStep1(encoder, doc)
 
       // TODO cannot send message during connection!!!!!
@@ -89,6 +87,7 @@ export const handler = ws(
       const decoder = decoding.createDecoder(message)
       const messageType = decoding.readVarUint(decoder)
 
+      console.log("MICHAL: messageType outside 1st switch", messageType);
       switch (messageType) {
         // Case sync1: Read SyncStep1 message and reply with SyncStep2 (send doc to client wrt state vector input)
         // Case sync2 or yjsUpdate: Read and apply Structs and then DeleteStore to a y instance (append to db, send to all clients)
@@ -97,13 +96,17 @@ export const handler = ws(
 
           // syncProtocol.readSyncMessage
           const messageType = decoding.readVarUint(decoder)
+          console.log("MICHAL: messageType inside 1st switch", messageType);
+
           switch (messageType) {
             case syncProtocol.messageYjsSyncStep1:
+              console.log("MICHAL: 'inside messageYjsSyncStep1'", 'inside messageYjsSyncStep1');
               syncProtocol.writeSyncStep2(encoder, doc, decoding.readVarUint8Array(decoder))
               break
             case syncProtocol.messageYjsSyncStep2:
             case syncProtocol.messageYjsUpdate:
               const update = decoding.readVarUint8Array(decoder)
+                console.log("MICHAL: inside messageYjsSyncStep2 && messageYjsUpdate");
               Y.applyUpdate(doc, update)
               await updateDoc(docName, update)
               await broadcast(message)

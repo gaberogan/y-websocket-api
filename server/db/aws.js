@@ -79,8 +79,6 @@ export async function getOrCreateDoc (docName) {
   }))
 
   let dbDoc = Items[0]
-  console.log("MICHAL: docName", docName);
-  console.log("MICHAL: dbDoc", JSON.stringify(dbDoc));
 
   // Doc not found, create doc
   if (!dbDoc) {
@@ -104,14 +102,14 @@ export async function getOrCreateDoc (docName) {
   const updates = dbDoc.Updates.L.map(_ => new Uint8Array(Buffer.from(_.B, 'base64')))
 
   const ydoc = new Y.Doc()
-  console.log("MICHAL: ydoc.getArray()", ydoc.getArray());
 
   console.log("MICHAL: updates.length", updates.length);
-  console.log("MICHAL: updates", updates);
 
   for (let i = 0; i < updates.length; i++) {
     Y.applyUpdate(ydoc, updates[i])
   }
+
+  ydoc.getArray('content').forEach(c => console.log([...c.entries()]))
 
   return ydoc
 }
