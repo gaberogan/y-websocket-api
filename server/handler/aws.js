@@ -23,11 +23,11 @@ const getDocName = (event) => {
 }
 
 const send = ({ context, message, id }) => {
-  console.log("MICHAL: JSON.stringify(context)", JSON.stringify(context));
   console.log("MICHAL: message", message);
+  console.log("MICHAL: toBase64(message)", toBase64(message));
   return context.postToConnection(toBase64(message), id)
     .catch((err) => {
-      console.error(`Error during postToConnection: ${err}`, id)
+      console.error(`Error during postToConnection: ${err}`)
       return removeConnection(id)
     })
 }
@@ -49,6 +49,7 @@ export const handler = ws(
       // writeSyncStep1 (send sv)
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, messageSync)
+      console.log("MICHAL: doc", doc);
       syncProtocol.writeSyncStep1(encoder, doc)
 
       // TODO cannot send message during connection!!!!!

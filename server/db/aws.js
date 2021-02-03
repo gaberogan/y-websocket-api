@@ -8,7 +8,6 @@ const ddb = new DynamoDBClient({
 })
 
 export async function addConnection (id, docName) {
-  console.log("MICHAL: Adding the connection", id, docName);
   await ddb.send(new PutItemCommand({
     TableName: process.env.CONNECTIONS_TABLE_NAME,
     Item: {
@@ -58,7 +57,6 @@ export async function getConnectionIds (docName) {
 }
 
 export async function removeConnection (id) {
-  console.log("MICHAL: 'Tried to remove connection from the table'", id);
   await ddb.send(new DeleteItemCommand({
     TableName: process.env.CONNECTIONS_TABLE_NAME,
     Key: {
@@ -81,6 +79,8 @@ export async function getOrCreateDoc (docName) {
   }))
 
   let dbDoc = Items[0]
+  console.log("MICHAL: docName", docName);
+  console.log("MICHAL: dbDoc", JSON.stringify(dbDoc));
 
   // Doc not found, create doc
   if (!dbDoc) {
@@ -104,6 +104,10 @@ export async function getOrCreateDoc (docName) {
   const updates = dbDoc.Updates.L.map(_ => new Uint8Array(Buffer.from(_.B, 'base64')))
 
   const ydoc = new Y.Doc()
+  console.log("MICHAL: ydoc.getArray()", ydoc.getArray());
+
+  console.log("MICHAL: updates.length", updates.length);
+  console.log("MICHAL: updates", updates);
 
   for (let i = 0; i < updates.length; i++) {
     Y.applyUpdate(ydoc, updates[i])

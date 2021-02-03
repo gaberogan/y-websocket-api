@@ -6,3 +6,4 @@ dbDir
 cdk.out
 .cdk.staging
 .snowpack
+/.idea/
