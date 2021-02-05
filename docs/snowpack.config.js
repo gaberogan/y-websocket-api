@@ -4,5 +4,6 @@ module.exports = {
   },
   buildOptions: {
     out: '../docs',
+    baseUrl: '/y-websocket-api'
   },
 }
