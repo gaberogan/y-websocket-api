@@ -17,6 +17,7 @@ import { cx, css } from '@emotion/css'
 import { Button, Icon, Toolbar } from './components'
 import { YJS_ENDPOINT } from '../../services/state.js'
 import useCursor from '../../services/useCursor.js'
+import useLocalStorage from '../../services/useLocalStorage.js'
 
 const HOTKEYS = {
   'mod+b': 'bold',
@@ -30,11 +31,12 @@ const LIST_TYPES = ['numbered-list', 'bulleted-list']
 const SlateEditor = () => {
   const [value, setValue] = useState([])
   const [editable, setEditable] = useState(false)
+  const [storedValue] = useLocalStorage('document', `doc-${Math.round(Math.random() * 1e4)}-fallback`)
 
   const [sharedType, provider] = useMemo(() => {
     const doc = new Y.Doc()
     const sharedType = doc.getArray('content')
-    const provider = new WebsocketProvider(YJS_ENDPOINT, '?doc=my-slate-doc429', doc)
+    const provider = new WebsocketProvider(YJS_ENDPOINT, `?doc=${storedValue}`, doc)
     return [sharedType, provider]
   }, [])
 

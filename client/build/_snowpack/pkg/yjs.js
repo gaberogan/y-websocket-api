@@ -1,0 +1,12 @@
+export { A as AbstractConnector, i as AbstractStruct, j as AbstractType, Y as Array, k as ContentAny, l as ContentBinary, m as ContentDeleted, n as ContentEmbed, o as ContentFormat, p as ContentJSON, C as ContentString, q as ContentType, D as Doc, G as GC, I as ID, r as Item, a as Map, P as PermanentUserData, R as RelativePosition, S as Snapshot, b as Text, T as Transaction, U as UndoManager, s as XmlElement, t as XmlFragment, u as XmlHook, v as XmlText, c as YArrayEvent, w as YEvent, d as YMapEvent, e as YTextEvent, x as YXmlEvent, h as applyUpdate, y as applyUpdateV2, z as compareIDs, B as compareRelativePositions, E as createAbsolutePositionFromRelativePosition, F as createDeleteSet, H as createDeleteSetFromStructStore, J as createDocFromSnapshot, K as createID, L as createRelativePositionFromJSON, M as createRelativePositionFromTypeIndex, N as createSnapshot, O as decodeSnapshot, Q as decodeSnapshotV2, V as decodeStateVector, W as decodeStateVectorV2, X as emptySnapshot, Z as encodeSnapshot, _ as encodeSnapshotV2, g as encodeStateAsUpdate, $ as encodeStateAsUpdateV2, f as encodeStateVector, a0 as encodeStateVectorV2, a1 as equalSnapshots, a2 as findRootTypeKey, a3 as getItem, a4 as getState, a5 as getTypeChildren, a6 as isDeleted, a7 as isParentOf, a8 as iterateDeletedStructs, a9 as logType, aa as readRelativePosition, ab as readUpdate, ac as readUpdateV2, ad as snapshot, ae as transact, af as tryGc, ag as typeListToArraySnapshot, ah as typeMapGetSnapshot, ai as writeRelativePosition } from './common/yjs-95ac26e6.js';
+import './common/observable-363df4ab.js';
+import './common/map-c5ea9815.js';
+import './common/math-91bb74dc.js';
+import './common/encoding-7fdf95b6.js';
+import './common/buffer-551584fe.js';
+import './common/process-2545f00a.js';
+import './common/binary-e1a1f68b.js';
+import './common/decoding-6e54b617.js';
+import './common/function-debeb549.js';
+import './common/object-034d355c.js';
+import './common/time-c2bb43f3.js';

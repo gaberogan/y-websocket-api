@@ -1,0 +1,26 @@
+{
+  "imports": {
+    "@emotion/css": "./@emotion/css.js",
+    "is-hotkey": "./is-hotkey.js",
+    "lib0/broadcastchannel.js": "./lib0/broadcastchannel.js",
+    "lib0/buffer.js": "./lib0/buffer.js",
+    "lib0/decoding.js": "./lib0/decoding.js",
+    "lib0/encoding.js": "./lib0/encoding.js",
+    "lib0/math.js": "./lib0/math.js",
+    "lib0/mutex.js": "./lib0/mutex.js",
+    "lib0/observable.js": "./lib0/observable.js",
+    "lib0/time.js": "./lib0/time.js",
+    "lib0/url.js": "./lib0/url.js",
+    "randomcolor": "./randomcolor.js",
+    "react": "./react.js",
+    "react-dom": "./react-dom.js",
+    "slate": "./slate.js",
+    "slate-history": "./slate-history.js",
+    "slate-react": "./slate-react.js",
+    "slate-yjs": "./slate-yjs.js",
+    "y-protocols/auth.js": "./y-protocols/auth.js",
+    "y-protocols/awareness.js": "./y-protocols/awareness.js",
+    "y-protocols/sync.js": "./y-protocols/sync.js",
+    "yjs": "./yjs.js"
+  }
+}

@@ -1,22 +1,18 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
 import { css } from '@emotion/css'
-// import QuillEditor from './components/QuillEditor'
 import SlateEditor from './components/SlateEditor'
+import ConnectionForm from './components/ConnectionForm'
 
 const pageStyle = css`
   margin: 24px;
 `
 
 const App = () => (
-  <React.Fragment>
-    <div className={pageStyle}>
-      <h1>Slate</h1>
-      <SlateEditor />
-      {/* <h1>Quill</h1>
-      <QuillEditor /> */}
-    </div>
-  </React.Fragment>
+  <div className={pageStyle}>
+    <ConnectionForm /> 
+    <SlateEditor />
+  </div>
 )
 
 ReactDOM.render(<App />, document.getElementById('root'))
