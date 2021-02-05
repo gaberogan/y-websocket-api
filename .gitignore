@@ -1,5 +1,5 @@
 .build
-server/build
+build
 web_modules
 node_modules
 dbDir
