@@ -25,15 +25,16 @@ aws dynamodb scan --table-name docs --endpoint-url http://localhost:8000
 
 ## Troubleshooting
 
-use node >= v 14.15.4
-make sure aws cli is correct region in stack/config.json and local-env.cjs
-replace account id with yours in stack/config.json
-make sure client/services/state.js has the endpoint you want
-make sure you've configured your aws cli. if you have multiple accounts, add --profile MYPROFILE to deploy command in stack
+- use node >= v 14.15.4
+- make sure aws cli is correct region in stack/config.json and local-env.cjs
+- replace account id with yours in stack/config.json
+- make sure client/services/state.js has the endpoint you want
+- make sure you've configured your aws cli. if you have multiple accounts, add --profile MYPROFILE to deploy command in stack
+- in client/services/state.js change the endpoint to ws://localhost:9000
 
 ## Known Issues
 
-can't handle json error from websocket
-new connections keep getting created for some reason
-max document size 400KB (planning to fix)
-doesn't flush document history at the moment
+- can't handle json error from websocket
+- new connections keep getting created for some reason
+- max document size 400KB (planning to fix)
+- doesn't flush document history at the moment
